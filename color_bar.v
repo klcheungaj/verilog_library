@@ -17,21 +17,21 @@ module color_bar (
     output [15:0]       o_g,
     output [15:0]       o_b,
 
-	input		        i_axi_awready,
-	input		        i_axi_wready,
-	input		        i_axi_bvalid,
-	output [6:0]        o_axi_awaddr,
-	output              o_axi_awvalid,
-	output [31:0]       o_axi_wdata,
-	output   	        o_axi_wvalid,
-	output   	        o_axi_bready,
-	
-	input		        i_axi_arready,
-	input		[31:0]  i_axi_rdata,
-	input		        i_axi_rvalid,
-	output 	[6:0]       o_axi_araddr,
-	output 	            o_axi_arvalid,
-	output 	            o_axi_rready
+    input               i_axi_awready,
+    input               i_axi_wready,
+    input               i_axi_bvalid,
+    output [6:0]        o_axi_awaddr,
+    output              o_axi_awvalid,
+    output [31:0]       o_axi_wdata,
+    output              o_axi_wvalid,
+    output              o_axi_bready,
+    
+    input               i_axi_arready,
+    input       [31:0]  i_axi_rdata,
+    input               i_axi_rvalid,
+    output  [6:0]       o_axi_araddr,
+    output              o_axi_arvalid,
+    output              o_axi_rready
 );
 
 localparam MAX_HRES = 11'd1080;
