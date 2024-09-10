@@ -1,0 +1,7 @@
+Axi4_2x512_1x512.v
+frame_buffer_512.v
+rd_address_decoder_512.sv
+wr_address_decoder_512.sv
+frame_buffer_sel.sv
+vga_buffer.v
+fifo.v
