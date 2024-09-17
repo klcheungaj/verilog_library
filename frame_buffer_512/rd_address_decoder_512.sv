@@ -40,10 +40,11 @@ output	[7:0]   out_rd_11
 );
 
 //Main states
-localparam
+typedef enum logic [1:0] {
 	IDLE 		= 2'b00, 	
 	READ_ADDR 	= 2'b01,
-	READ 		= 2'b10;
+	READ 		= 2'b10
+} state_t;
 
 
 /* Remap video XY to DDR address */
@@ -59,7 +60,7 @@ reg			r_de_2L_1P;
 reg	[Y_WID-1:0]	r_y_cnt_2L_1P;
 reg			r_in_de_0L_1P;
 reg			r_in_de_0L_2P;
-reg	[1:0]	states;
+state_t	states;
 reg	[Y_WID-1:0]	r_rd_ycnt;
 reg	[Y_WID-1:0]	r_axi_ycnt;
 reg	[X_WID-6-1:0]	r_rd_xcnt;

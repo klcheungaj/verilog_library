@@ -37,15 +37,16 @@ output	[511:0]		out_wr_data
 );
 
 //Main states
-localparam
+typedef enum logic [2:0] {
 	IDLE 		= 3'b000, 
 	WRITE_ADDR 	= 3'b001,
 	PRE_WRITE 	= 3'b010,
 	WRITE 		= 3'b011,
-	POST_WRITE 	= 3'b100;
+	POST_WRITE 	= 3'b100
+} state_t;
 
 /* Remap video XY to DDR address */
-reg [2:0]	states;
+state_t		states;
 reg	[4:0]	r_x_rd;
 reg			r_pclk_new_line;
 reg	[X_WID-12+1:0] write_cycle;	// for 1 more bit to store an extra cycle
