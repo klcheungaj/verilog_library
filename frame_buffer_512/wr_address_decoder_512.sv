@@ -48,7 +48,7 @@ localparam
 reg [2:0]	states;
 reg	[4:0]	r_x_rd;
 reg			r_pclk_new_line;
-reg	[X_WID-12:0] write_cycle;
+reg	[X_WID-12+1:0] write_cycle;	// for 1 more bit to store an extra cycle
 reg	[Y_WID-1:0]	r_wr_y;
 reg	[Y_WID-1:0]	r_wr_y_temp;
 reg	[Y_WID-1:0]	r_y_wr_1P;
@@ -125,7 +125,7 @@ begin
 	end
 	else
 	begin
-		out_wr_addr	<= {5'b0, in_frame_cnt, r_wr_y, write_cycle, 11'b0};
+		out_wr_addr	<= {5'b0, in_frame_cnt, r_wr_y, write_cycle[0 +: X_WID-11], 11'b0};
 		
 		if (r_axi_new_line && ~r_wr_load)
 		begin
@@ -260,7 +260,7 @@ generate
 				
 			.rclk	(axi_clk),
 			.re		(r_rd_en),
-			.raddr	({r_y_cnt[0], write_cycle, r_x_rd} + (out_wr_valid & in_wr_ready)),
+			.raddr	({r_y_cnt[0], write_cycle[0 +: X_WID-11], r_x_rd} + (out_wr_valid & in_wr_ready)),
 			.rdata	(w_wr_data_axi[idx*32 +: 32])
 		);
 	end
