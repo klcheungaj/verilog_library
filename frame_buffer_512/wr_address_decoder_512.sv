@@ -78,8 +78,8 @@ begin
     if (~rstn) 
 	begin
 		r_wr_y_temp		<= '0;
-		r_pclk_new_line	<= 1'b0;
-		r_wr_load_1P	<= 1'b0;
+		r_pclk_new_line	<= '0;
+		r_wr_load_1P	<= '0;
 		r_y_wr_1P		<= '0;
 	end
 	else
@@ -89,14 +89,14 @@ begin
 		
 		if (in_x_wr_nom == x_win - 'd4)
 		begin
-			r_pclk_new_line	<= 1'b1;
+			r_pclk_new_line	<= 1;
 			r_wr_y_temp		<= r_y_wr_1P;
 		end
 		
 		if (r_wr_load_1P == 1)
 		begin
-			r_pclk_new_line	<= 1'b0;
-			// r_wr_y_temp		<= 13'b0;
+			r_pclk_new_line	<= '0;
+			// r_wr_y_temp		<= '0;
 		end
 	end
 end
@@ -107,20 +107,20 @@ begin
     if (~rstn) 
 	begin
 		states			<= IDLE;
-		out_wr_valid	<= 1'b0;
-		out_wr_bready	<= 1'b0;
-		out_wr_last		<= 1'b0;
-		out_wr_avalid	<= 1'b0;
-		r_x_rd			<= 5'b0;
-		write_cycle		<= 0;
+		out_wr_valid	<= '0;
+		out_wr_bready	<= '0;
+		out_wr_last		<= '0;
+		out_wr_avalid	<= '0;
+		r_x_rd			<= '0;
+		write_cycle		<= '0;
 		r_wr_y			<= '0;
-		r_wr_load		<= 1'b0;
-		r_burst_cnt		<= 5'b0;
-		r_rd_en			<= 1'b0;
+		r_wr_load		<= '0;
+		r_burst_cnt		<= '0;
+		r_rd_en			<= '0;
 		r_axi_wr_y_temp	<= '0;
-		r_axi_new_line	<= 1'b0;
-		r_axi_start		<= 1'b0;
-		out_wr_addr		<= 32'b0;
+		r_axi_new_line	<= '0;
+		r_axi_start		<= '0;
+		out_wr_addr		<= '0;
 		r_y_cnt			<= '0;
 	end
 	else
@@ -130,11 +130,11 @@ begin
 		if (r_axi_new_line && ~r_wr_load)
 		begin
 			r_axi_wr_y_temp	<= r_wr_y_temp;
-			r_axi_start		<= 1'b1;
+			r_axi_start		<= 1;
 		end
 		
 		if (r_wr_load)
-			r_axi_start		<= 1'b0;
+			r_axi_start		<= '0;
 						
 		r_axi_new_line	<= r_pclk_new_line;
 				
@@ -142,28 +142,28 @@ begin
 			r_y_cnt	<= '0;
 			
 		if (in_wr_aready)
-			out_wr_avalid	<= 1'b0;
+			out_wr_avalid	<= '0;
 			
 		case (states)
 			IDLE:
 			begin
-				r_rd_en <= 0;
+				r_rd_en <= '0;
 				if (~r_wr_load && r_axi_start)
 				begin
-					write_cycle	<= 0;
+					write_cycle	<= '0;
 					r_wr_y		<= r_axi_wr_y_temp;
-					out_wr_avalid	<= 1'b1;
-					r_wr_load		<= 1'b1;
+					out_wr_avalid	<= 1;
+					r_wr_load		<= 1;
 					states			<= WRITE_ADDR;
 					r_rd_en			<= 1;
-					r_x_rd			<= 0;
+					r_x_rd			<= '0;
 				end
 			end
 			
 			WRITE_ADDR:
 			begin
-				out_wr_valid	<= 1'b1;
-				out_wr_bready	<= 1'b1;
+				out_wr_valid	<= 1;
+				out_wr_bready	<= 1;
 				states			<= WRITE;
 			end
 			
@@ -176,14 +176,14 @@ begin
 					
 					if (out_wr_last)
 					begin
-						out_wr_last		<= 1'b0;
-						out_wr_valid	<= 1'b0;
-						r_burst_cnt		<= 5'b0;
+						out_wr_last		<= '0;
+						out_wr_valid	<= '0;
+						r_burst_cnt		<= '0;
 						states			<= POST_WRITE;						
 					end
 					else if (r_burst_cnt == 5'd30)
 					begin
-						out_wr_last	<= 1'b1;
+						out_wr_last	<= 1;
 						write_cycle	<= write_cycle + 1'b1;
 					end
 				end
@@ -192,23 +192,23 @@ begin
 			POST_WRITE:
 			begin
 				if (in_wr_bvalid)
-					out_wr_bready <= 0;
+					out_wr_bready <= '0;
 					
 				if (!out_wr_bready && !out_wr_avalid)
 				begin
-					out_wr_last		<= 1'b0;
-					out_wr_valid	<= 1'b0;
-					r_burst_cnt		<= 5'b0;
+					out_wr_last		<= '0;
+					out_wr_valid	<= '0;
+					r_burst_cnt		<= '0;
 					
 					if (write_cycle > x_win[X_WID-1:11])
 					begin					
 						states			<= IDLE;					
-						write_cycle 	<= 0;		
-						out_wr_bready	<= 1'b0;
-						out_wr_avalid	<= 1'b0;
-						r_wr_load		<= 1'b0;	
+						write_cycle 	<= '0;		
+						out_wr_bready	<= '0;
+						out_wr_avalid	<= '0;
+						r_wr_load		<= '0;	
 						r_wr_y			<= '0;
-						r_rd_en			<= 1'b0;
+						r_rd_en			<= '0;
 						
 						if (r_y_cnt == y_win - 1)
 							r_y_cnt	<= '0;
@@ -217,8 +217,8 @@ begin
 					end			
 					else
 					begin			
-						out_wr_bready	<= 1'b0;		
-						out_wr_avalid	<= 1'b1;
+						out_wr_bready	<= '0;		
+						out_wr_avalid	<= 1;
 						states			<= WRITE_ADDR;
 					end
 				end
@@ -226,14 +226,14 @@ begin
 			
 			default:
 			begin
-				write_cycle 	<= 0;
-				out_wr_valid	<= 1'b0;					
-				out_wr_bready	<= 1'b0;
-				out_wr_avalid	<= 1'b0;
-				r_wr_load		<= 1'b0;
-				out_wr_last		<= 1'b0;
-				r_rd_en			<= 1'b0;
-				r_burst_cnt		<= 5'b0;
+				write_cycle 	<= '0;
+				out_wr_valid	<= '0;					
+				out_wr_bready	<= '0;
+				out_wr_avalid	<= '0;
+				r_wr_load		<= '0;
+				out_wr_last		<= '0;
+				r_rd_en			<= '0;
+				r_burst_cnt		<= '0;
 				r_wr_y			<= '0;
 				states			<= IDLE;
 			end

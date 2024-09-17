@@ -89,20 +89,20 @@ always @(posedge axi_clk)
 begin
     if (~rstn) 
 	begin	
-		r_in_de_0L_1P	<= 1'b0;
-		r_in_de_0L_2P	<= 1'b0;
+		r_in_de_0L_1P	<= '0;
+		r_in_de_0L_2P	<= '0;
 		states			<= IDLE;
 		r_rd_ycnt		<= '0;
 		r_axi_ycnt		<= '0;
 		r_rd_xcnt		<= '0;
-		out_0_ar_valid	<= 1'b0;
-		out_0_r_ready	<= 1'b0;
-		r_axi_new_line	<= 1'b0;
-		r_rd_load		<= 1'b0;
-		r_axi_de		<= 1'b0;
-		r_axi_vsync		<= 1'b0;
-		r_axi_vsync_1P  <= 0;
-		//out_0_ar_addr	<= 32'b0;
+		out_0_ar_valid	<= '0;
+		out_0_r_ready	<= '0;
+		r_axi_new_line	<= '0;
+		r_rd_load		<= '0;
+		r_axi_de		<= '0;
+		r_axi_vsync		<= '0;
+		r_axi_vsync_1P  <= '0;
+		//out_0_ar_addr	<= '0;
 	end
 	else
 	begin		
@@ -115,7 +115,7 @@ begin
 		
 		if (r_in_de_0L_1P && !r_in_de_0L_2P)
 		begin
-			r_axi_new_line 	<= 1'b1;
+			r_axi_new_line 	<= 1;
 			//r_rd_ycnt		<= r_axi_ycnt;
 		end
 			
@@ -139,10 +139,10 @@ begin
 				begin
 					if (r_axi_new_line)
 					begin					
-						out_0_ar_valid	<= 1'b1;
-						r_rd_load		<= 1'b1;
-						r_axi_new_line	<= 1'b0;				
-						r_rd_xcnt		<= 0;
+						out_0_ar_valid	<= 1;
+						r_rd_load		<= 1;
+						r_axi_new_line	<= '0;				
+						r_rd_xcnt		<= '0;
 						states			<= READ_ADDR;
 					end
 				end
@@ -152,8 +152,8 @@ begin
 			begin
 				if (in_0_ar_ready)
 				begin
-					out_0_ar_valid	<= 1'b0;
-					out_0_r_ready	<= 1'b1;
+					out_0_ar_valid	<= '0;
+					out_0_r_ready	<= 1;
 					states			<= READ;
 				end
 			end
@@ -168,10 +168,10 @@ begin
 					begin
 						if (X_WID'(r_rd_xcnt << 6) >= x_win + x_start)	// 6 because AXI width is 512
 						begin
-							r_rd_load		<= 1'b0;					
-							r_rd_xcnt		<= 0;
-							out_0_r_ready	<= 1'b0;
-							out_0_ar_valid	<= 1'b0;
+							r_rd_load		<= '0;					
+							r_rd_xcnt		<= '0;
+							out_0_r_ready	<= '0;
+							out_0_ar_valid	<= '0;
 							states			<= IDLE;
 							
 							if (r_rd_ycnt == y_win - 1'b1)
@@ -181,8 +181,8 @@ begin
 						end
 						else
 						begin
-							out_0_r_ready	<= 1'b0;
-							out_0_ar_valid	<= 1'b1;
+							out_0_r_ready	<= '0;
+							out_0_ar_valid	<= 1;
 							states			<= READ_ADDR;
 						end
 					end
@@ -191,10 +191,10 @@ begin
 
 			default:
 			begin
-				r_rd_load		<= 1'b0;					
-				r_rd_xcnt		<= 0;
-				out_0_r_ready	<= 1'b0;
-				out_0_ar_valid	<= 1'b0;
+				r_rd_load		<= '0;					
+				r_rd_xcnt		<= '0;
+				out_0_r_ready	<= '0;
+				out_0_ar_valid	<= '0;
 				
 				states			<= IDLE;
 			end
@@ -207,20 +207,20 @@ always @(posedge p_clk)
 begin
     if (~rstn) 
 	begin	
-		r_hs_1P			<= 1'b1;
+		r_hs_1P			<= 1;
 		r_rd_addr		<= x_start;
 		r_rd_addr_1P	<= '0;
 		r_rd_addr_2P	<= '0;
 		r_rd_addr_3P	<= '0;
-		r_de_2L_1P		<= 1'b0;
-		r_y_cnt_2L_1P	<= 0;
-		r_line_in_1L	<= 1'b0;
-		r_line_in_2L	<= 1'b0;
-		r_line_cnt		<= 2'b0;
-		r_out_rd_00 	<= 8'b0;
-		r_out_rd_01 	<= 8'b0;
-		r_out_rd_10 	<= 8'b0;
-		r_out_rd_11 	<= 8'b0;
+		r_de_2L_1P		<= '0;
+		r_y_cnt_2L_1P	<= '0;
+		r_line_in_1L	<= '0;
+		r_line_in_2L	<= '0;
+		r_line_cnt		<= '0;
+		r_out_rd_00 	<= '0;
+		r_out_rd_01 	<= '0;
+		r_out_rd_10 	<= '0;
+		r_out_rd_11 	<= '0;
 	end
 	else
 	begin		
@@ -239,7 +239,7 @@ begin
 		end
 		
 		if (!w_vsync_2L)
-			r_y_cnt_2L_1P	<= 0;
+			r_y_cnt_2L_1P	<= '0;
 				
 		if (w_de_2L)
 		begin		
@@ -253,10 +253,10 @@ begin
 			r_line_cnt	<= r_line_cnt + 1'b1;
 		
 		if (r_line_cnt[0])
-			r_line_in_1L	<= 1'b1;
+			r_line_in_1L	<= 1;
 		
 		if (r_line_cnt[1])
-			r_line_in_2L	<= 1'b1;
+			r_line_in_2L	<= 1;
 		
 		r_out_rd_00 <= w_rd_data[r_rd_addr_3P[5:2]*32+0  +: 8];
 		r_out_rd_01 <= w_rd_data[r_rd_addr_3P[5:2]*32+8  +: 8];
