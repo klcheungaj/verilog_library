@@ -297,7 +297,7 @@ always_ff @(posedge i_pclk or negedge i_rstn) begin : read_control
 
         if (!hsync_3L_r1) begin
             x_active_cnt <= '0;
-        end else if (valid_3L_r2 && de_3L_r2) begin
+        end else if (valid_3L_r1 && de_3L_r1) begin
             x_active_cnt <= x_active_cnt + OUT_PCNT;
         end
         
