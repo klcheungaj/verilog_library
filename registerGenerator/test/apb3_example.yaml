@@ -13,7 +13,7 @@ params:
 - NUM_LVDS0: &NUM_LVDS0 15
 - NUM_LVDS1: &NUM_LVDS1 15
 - NUM_XGE: &NUM_XGE 4
-registers:
+registers: ## for list of name, left-most field is MSB 
 - name: [pma_rstn, ddr_cfg_rstn, lvds_test_rstn, pm_gpio_test_rstn, mem_test_rstn, gpio_test_rstn, mipi_rstn, osc_test_rstn]
   width: [1, 1, 1, 1, 1, 1, 1, 1]
   reg_type: rw
