@@ -149,7 +149,7 @@ class RegDefine():
             
         return ret
 
-def generate_header(basename, port_def: list[RegDefine], reg_dict):
+def generate_verilog_module_header(basename, port_def: list[RegDefine], reg_dict):
     output = io.StringIO()
     addr_width = reg_dict['addr_width']
     data_width = reg_dict['data_width']
@@ -187,7 +187,7 @@ def generate_header(basename, port_def: list[RegDefine], reg_dict):
     output.writelines(remaining_lines)
     return output.getvalue()
 
-def generate_body(port_def: list[RegDefine], reg_dict):
+def generate_verilog_module_body(port_def: list[RegDefine], reg_dict):
     def to_localparam_statement(param_list: list[dict]):
         ret = [
             "//-- Following parameters were defined when this RTL file was generated. \n//-- They are not directly used in this file\n"
@@ -281,13 +281,10 @@ def parse(input_file, output_dir, force_overwrite):
         reg_count += port.reg_count
     if 2**reg_dict['addr_width'] < reg_count:
         raise ValueError(f"Address width {reg_dict['addr_width']} of the bus is less than number of register: {reg_count}")
-    output.write(generate_header(filepath.stem, port_def, reg_dict))
-    output.write(generate_body(port_def, reg_dict))
+    output.write(generate_verilog_module_header(filepath.stem, port_def, reg_dict))
+    output.write(generate_verilog_module_body(port_def, reg_dict))
     with open(output_file, "w") as f:
         f.write(output.getvalue())
-    # print(output.getvalue())
-    # for register in reg_dict['registers']:
-    #     print(register)
             
 def main():
     parser = argparse.ArgumentParser()
