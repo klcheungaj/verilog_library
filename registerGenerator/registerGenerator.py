@@ -155,7 +155,7 @@ def generate_verilog_module_header(basename, port_def: list[RegDefine], reg_dict
     data_width = reg_dict['data_width']
     reset_polarity = reg_dict['reset_polarity']
     reset_name = "s_apb3_rst" if reset_polarity else "s_apb3_rstn"
-    str = [
+    beginning_code = [
         f"////////////////////////////////////////////\n",
         f"// revision       : {reg_dict['revision']}\n",
         f"// File generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -164,13 +164,9 @@ def generate_verilog_module_header(basename, port_def: list[RegDefine], reg_dict
         os.linesep,
         f"module {basename} (\n"
     ]
-    output.writelines(str)
-
     format_str_last_line = "{}{{:<6}} {{:<4}} {{:>7}} {{:<20}}{{:>6}}".format(''.ljust(INDENT_SPACE))
     format_str = format_str_last_line + ",\n"
-    for port in port_def:
-        output.writelines(port.to_port_decl(format_str))
-    remaining_lines = [
+    ending_code = [
         "\n",
         format_str.format('input', "wire", "", "s_apb3_clk", ""),
         format_str.format('input', "wire", "", reset_name, ""),
@@ -184,7 +180,10 @@ def generate_verilog_module_header(basename, port_def: list[RegDefine], reg_dict
         format_str_last_line.format('output', "wire", "", "s_apb3_pslverror", ""),
         "\n);\n",
     ]
-    output.writelines(remaining_lines)
+    output.writelines(beginning_code)
+    for port in port_def:
+        output.writelines(port.to_port_decl(format_str))
+    output.writelines(ending_code)
     return output.getvalue()
 
 def generate_verilog_module_body(port_def: list[RegDefine], reg_dict):
@@ -204,16 +203,16 @@ def generate_verilog_module_body(port_def: list[RegDefine], reg_dict):
     reset_name = "s_apb3_rst" if polarity else "s_apb3_rstn"
     reset_condition = "{} == {}".format(reset_name, "1'b1" if polarity == 1 else "1'b0")
     reset_sensitivity = "{}".format("" if sync_reset else " or {} {}".format("posedge" if polarity == 1 else "negedge", reset_name))
-    ending_statement = [
-        "\n\nendmodule\n\n"
-    ]
-    beginning_statement = "{param_define}\nassign s_apb3_pslverror = 1'b0;\nreg [{addr_width}-3:0] loc_addr;\nreg          loc_wr_vld;\nreg          loc_rd_vld;\n\nalways @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition})\n        loc_addr <= {index_width}'b0;\n    else if((s_apb3_psel == 1'b1) && (s_apb3_penable == 1'b0))\n        loc_addr <= s_apb3_paddr[2 +: {index_width}];\nend\n\nalways @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition})\n        loc_wr_vld <= 1'b0;\n    else if((s_apb3_psel == 1'b1) && (s_apb3_penable == 1'b0) && (s_apb3_pwrite == 1'b1))\n        loc_wr_vld <= 1'b1;\n    else\n        loc_wr_vld <= 1'b0;\nend\n\nalways @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition})\n        loc_rd_vld <= 1'b0;\n    else if((s_apb3_psel == 1'b1) && (s_apb3_penable == 1'b0) && (s_apb3_pwrite == 1'b0))\n        loc_rd_vld <= 1'b1;\n    else\n        loc_rd_vld <= 1'b0;\nend\n\nalways @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition})\n        s_apb3_pready <= 1'b0;\n    else if((loc_wr_vld == 1'b1) || (loc_rd_vld == 1'b1))\n        s_apb3_pready <= 1'b1;\n    else\n        s_apb3_pready <= 1'b0;\nend\n".format(param_define=to_localparam_statement(reg_dict['params']), addr_width=addr_width, reset_sensitivity=reset_sensitivity, reset_condition=reset_condition, index_width=addr_width-2)
+    beginning_code = "{param_define}\nassign s_apb3_pslverror = 1'b0;\nreg [{addr_width}-3:0] loc_addr;\nreg          loc_wr_vld;\nreg          loc_rd_vld;\n\nalways @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition})\n        loc_addr <= {index_width}'b0;\n    else if((s_apb3_psel == 1'b1) && (s_apb3_penable == 1'b0))\n        loc_addr <= s_apb3_paddr[2 +: {index_width}];\nend\n\nalways @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition})\n        loc_wr_vld <= 1'b0;\n    else if((s_apb3_psel == 1'b1) && (s_apb3_penable == 1'b0) && (s_apb3_pwrite == 1'b1))\n        loc_wr_vld <= 1'b1;\n    else\n        loc_wr_vld <= 1'b0;\nend\n\nalways @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition})\n        loc_rd_vld <= 1'b0;\n    else if((s_apb3_psel == 1'b1) && (s_apb3_penable == 1'b0) && (s_apb3_pwrite == 1'b0))\n        loc_rd_vld <= 1'b1;\n    else\n        loc_rd_vld <= 1'b0;\nend\n\nalways @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition})\n        s_apb3_pready <= 1'b0;\n    else if((loc_wr_vld == 1'b1) || (loc_rd_vld == 1'b1))\n        s_apb3_pready <= 1'b1;\n    else\n        s_apb3_pready <= 1'b0;\nend\n".format(param_define=to_localparam_statement(reg_dict['params']), addr_width=addr_width, reset_sensitivity=reset_sensitivity, reset_condition=reset_condition, index_width=addr_width-2)
     write_statement = "always @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition}) begin\n        {{port_name}} <= {{width}}'b0;\n    end else if((loc_wr_vld == 1'b1) && (loc_addr == {index_width}'d{{address}})) begin\n        {{port_name}} <= s_apb3_pwdata[0 +: {{width}}];\n    end\nend\n\n".format(reset_sensitivity=reset_sensitivity, reset_condition=reset_condition, index_width=addr_width-2)
 
     read_statement = "always @(posedge s_apb3_clk{reset_sensitivity}) begin\n    if({reset_condition}) begin\n        s_apb3_prdata <= {data_width}'b0;\n    end else if(loc_rd_vld == 1'b1) begin\n        case (loc_addr)\n{{case_statement}}            default: s_apb3_prdata <= {data_width}'b0;\n        endcase\n    end\nend".format(data_width=data_width, reset_sensitivity=reset_sensitivity, reset_condition=reset_condition)
 
     read_case_statement = "            {index_width}'d{{index}} : s_apb3_prdata <= {{port_name}};\n".format(index_width=addr_width-2)
-    output.writelines(beginning_statement)
+    ending_code = [
+        "\n\nendmodule\n\n"
+    ]
+    output.writelines(beginning_code)
     for port in port_def:
         if port.writable:
             output.writelines(port.to_write_statement(write_statement))
@@ -222,7 +221,7 @@ def generate_verilog_module_body(port_def: list[RegDefine], reg_dict):
         if port.readable:
             case_list += port.to_read_statement(read_case_statement)
     output.writelines(read_statement.format(case_statement="".join(case_list)))
-    output.writelines(ending_statement)
+    output.writelines(ending_code)
     return output.getvalue()
 
 def parse(input_file, output_dir, force_overwrite):
