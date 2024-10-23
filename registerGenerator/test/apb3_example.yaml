@@ -1,0 +1,95 @@
+revision: "1.0"
+addr_width: 16
+data_width: 32
+sync_reset: false ## optional
+reset_polarity: 0 ## optional
+offset: 0         ## optional, byte address
+params:
+- NUM_LED: &NUM_LED 9
+- NUM_DDR: &NUM_DDR 2
+- NUM_CLK: &NUM_CLK 2
+- NUM_MIPI: &NUM_MIPI 4
+- NUM_GPIO: &NUM_GPIO 12
+- NUM_LVDS0: &NUM_LVDS0 15
+- NUM_LVDS1: &NUM_LVDS1 15
+- NUM_XGE: &NUM_XGE 4
+registers:
+- name: [pma_rstn, ddr_cfg_rstn, lvds_test_rstn, pm_gpio_test_rstn, mem_test_rstn, gpio_test_rstn, mipi_rstn, osc_test_rstn]
+  width: [1, 1, 1, 1, 1, 1, 1, 1]
+  reg_type: rw
+- name: [xge_test_start, mem_start, mipi_start]
+  width: [1, 1, 1]
+  reg_type: rw
+- name: kr_restart_training
+  reg_type: rw
+  width: 1
+- name: led
+  reg_type: rw
+  width: *NUM_LED
+- name: mem_run_sec
+  reg_type: rw
+  width: 32
+- name: clk_pass
+  reg_type: r
+  width: *NUM_CLK
+- name: clk_fail
+  reg_type: r
+  width: *NUM_CLK
+- port_num: *NUM_DDR
+  reg_type: r
+  registers:
+  - name: ddr_cfg_done
+    width: 1
+  - name: mem_done
+    width: 1
+  - name: mem_wr_bandwidth
+    width: 32
+  - name: mem_rd_bandwidth
+    width: 32
+  - name: mem_error_dq_total
+    width: 32
+- name: gpio_pass
+  width: *NUM_GPIO
+  reg_type: r
+- name: gpio_fail
+  width: *NUM_GPIO
+  reg_type: r
+- port_num: *NUM_MIPI
+  name: mipi
+  reg_type: r
+  registers:
+  - name: pass
+    width: 1
+  - name: fail
+    width: 1
+  - name: clk_active
+    width: 1
+  - name: frame_valid
+    width: 1
+- port_num: *NUM_LVDS0
+  name: lvds0
+  reg_type: r
+  registers: 
+  - name: pass
+    width: 1
+  - name: [target_point, end_point, start_point]
+    width: [8, 8, 8]
+  - name: pass_cnt_line
+    width: 32
+  - name: fail_cnt_line
+    width: 32
+- port_num: *NUM_LVDS1
+  name: lvds1
+  reg_type: r
+  registers: 
+  - name: pass
+    width: 1
+  - name: [target_point, end_point, start_point]
+    width: [8, 8, 8]
+  - name: pass_cnt_line
+    width: 32
+  - name: fail_cnt_line
+    width: 32
+- name: xge_init_done
+  width: *NUM_XGE
+  reg_type: r
