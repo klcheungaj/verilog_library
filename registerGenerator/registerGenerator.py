@@ -146,8 +146,53 @@ class RegDefine():
                 ret.append(format_str.format(index=self.__index + i, port_name=self.to_concat_name("", f"[{i}]", True)))
         else:
             ret.append(format_str.format(index=self.__index, port_name=self.to_concat_name("", "", True)))
-            
         return ret
+    
+    def to_c_macro(self):
+        ret = []
+        reg_format = "#define REG_{{:<30}}    {}{{:<10}} //index: {{}}\n".format(''.ljust(INDENT_SPACE), "")
+        offset_format = "{}#define OFFSET_{{:<30}} {{:<10}}\n".format(''.ljust(INDENT_SPACE))
+        bit = 0
+        if self.__unpacked_width:
+            if type(self.__name) is list:
+                ret.append(reg_format.format(self.__name[0].upper(), hex(self.__index * 4), self.__index))
+                for name, width in reversed(list(zip(self.__name, self.__width))):
+                    ret.append(offset_format.format(name.upper(), bit))
+                    bit += width
+            else:
+                ret.append(reg_format.format(self.__name.upper(), hex(self.__index * 4), self.__index))
+        elif type(self.__name) is list:
+            ret.append(reg_format.format(self.__name[0].upper(), hex(self.__index * 4), self.__index))
+            for name, width in reversed(list(zip(self.__name, self.__width))):
+                ret.append(offset_format.format(name.upper(), bit))
+                bit += width
+        else:
+            ret.append(reg_format.format(self.__name.upper(), hex(self.__index * 4), self.__index))
+        return ret
+
+def generate_c_header(basename, port_def: list[RegDefine], reg_dict):
+    def to_param_define(param_list: list[dict]):
+        ret = []
+        for param in param_list:
+            key = next(iter(param))
+            ret.append(f"#define PARAM_{key:<20} {param[key]:<10}\n")
+        ret.append("\n")
+        return "".join(ret)
+    
+    output = io.StringIO()
+    beginning_code = [
+        f"////////////////////////////////////////////\n",
+        f"// revision       : {reg_dict['revision']}\n",
+        f"// File generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"////////////////////////////////////////////\n",
+        f"#pragma once\n\n"
+    ]
+    output.writelines(beginning_code)
+    output.writelines(to_param_define(reg_dict['params']))
+    for port in port_def:
+        output.writelines(port.to_c_macro())
+    return output.getvalue()
+
 
 def generate_verilog_module_header(basename, port_def: list[RegDefine], reg_dict):
     output = io.StringIO()
@@ -192,8 +237,8 @@ def generate_verilog_module_body(port_def: list[RegDefine], reg_dict):
             "//-- Following parameters were defined when this RTL file was generated. \n//-- They are not directly used in this file\n"
         ]
         for param in param_list:
-            item = param.popitem()
-            ret.append(f"// localparam {item[0]} = {item[1]};\n")
+            key = next(iter(param))
+            ret.append(f"// localparam {key} = {param[key]};\n")
         return "".join(ret)
     output = io.StringIO()
     addr_width = reg_dict['addr_width']
@@ -236,16 +281,16 @@ def parse(input_file, output_dir, force_overwrite):
             reg_dict['reset_polarity'] = 0
         if 'offset' not in reg_dict:
             reg_dict['offset'] = 0
-    output_file = output_dir.joinpath(filepath.stem + '.v')
-    if output_file.exists():
+    verilog_file = output_dir.joinpath(filepath.stem + '.v')
+    c_file = output_dir.joinpath(filepath.stem + '.c')
+    if verilog_file.exists() or c_file.exists():
         if not force_overwrite:
-            print(f"output file {output_file} already exists. Script exit")
+            print(f"output file {verilog_file} or {c_file} already exists. Script exit")
             return
         else:
-            print(f"output file {output_file} already exists but --force flag is set. The original file will be overwritten") 
-    output = io.StringIO()
-    port_def: list[RegDefine] = []
+            print(f"output file {verilog_file} or {c_file} already exists but --force flag is set. The original file will be overwritten") 
 
+    port_def: list[RegDefine] = []
     index = reg_dict['offset']
     for reg in reg_dict['registers']:
         if 'port_num' in reg:
@@ -280,11 +325,16 @@ def parse(input_file, output_dir, force_overwrite):
         reg_count += port.reg_count
     if 2**reg_dict['addr_width'] < reg_count:
         raise ValueError(f"Address width {reg_dict['addr_width']} of the bus is less than number of register: {reg_count}")
-    output.write(generate_verilog_module_header(filepath.stem, port_def, reg_dict))
-    output.write(generate_verilog_module_body(port_def, reg_dict))
-    with open(output_file, "w") as f:
-        f.write(output.getvalue())
-            
+    verilog_code = io.StringIO()
+    verilog_code.write(generate_verilog_module_header(filepath.stem, port_def, reg_dict))
+    verilog_code.write(generate_verilog_module_body(port_def, reg_dict))
+    with open(verilog_file, "w") as f:
+        f.write(verilog_code.getvalue())
+
+    c_code = generate_c_header(filepath.stem, port_def, reg_dict)   
+    with open(c_file, "w") as f:
+        f.write(c_code)
+        
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="path of the YAML file that defines registers")
