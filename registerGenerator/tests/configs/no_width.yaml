@@ -1,0 +1,6 @@
+revision: "1.0"
+registers: 
+- name: dummy
+  reg_type: r
+  width: 1
+  

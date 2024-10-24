@@ -348,6 +348,7 @@ def parse(input_file, output_dir, force_overwrite):
     with open(c_file, "w") as f:
         f.write(c_code)
         
+def main(arg_list: list[str] | None = None):
     global current_datetime
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="path of the YAML file that defines registers")

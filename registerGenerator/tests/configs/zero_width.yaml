@@ -1,0 +1,8 @@
+revision: "1.0"
+addr_width: 0
+data_width: 0
+registers: 
+- name: dummy
+  reg_type: r
+  width: 1
+  

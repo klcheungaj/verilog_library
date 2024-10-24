@@ -1,0 +1,10 @@
+revision: "1.0"
+addr_width: 32
+data_width: 32
+registers: 
+- port_num: 2
+  name: port
+  registers:
+    - name: dummy
+      width: 1
+      
