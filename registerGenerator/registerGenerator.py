@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 
 INDENT_SPACE = 4
+current_datetime = None
 
 class RegDefine():
     def __init__(self, name, width, reg_type, unpacked_width, bus_width, index):
@@ -183,7 +184,7 @@ def generate_c_header(basename, port_def: list[RegDefine], reg_dict):
     beginning_code = [
         f"////////////////////////////////////////////\n",
         f"// revision       : {reg_dict['revision']}\n",
-        f"// File generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"// File generated : {current_datetime.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"////////////////////////////////////////////\n",
         f"#pragma once\n\n"
     ]
@@ -203,7 +204,7 @@ def generate_verilog_module_header(basename, port_def: list[RegDefine], reg_dict
     beginning_code = [
         f"////////////////////////////////////////////\n",
         f"// revision       : {reg_dict['revision']}\n",
-        f"// File generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"// File generated : {current_datetime.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"////////////////////////////////////////////\n",
         f"`default_nettype none\n",
         os.linesep,
@@ -347,12 +348,17 @@ def parse(input_file, output_dir, force_overwrite):
     with open(c_file, "w") as f:
         f.write(c_code)
         
-def main():
+    global current_datetime
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="path of the YAML file that defines registers")
     parser.add_argument("--output_dir", type=str, help="output directory of the generated Verilog file", default=".")
     parser.add_argument("-f", "--force", help="force overwrite output file", action='store_true')
-    args = parser.parse_args()
+    parser.add_argument('--datetime_override', help=argparse.SUPPRESS)
+    args = parser.parse_args(arg_list)
+    if args.datetime_override is not None:
+        current_datetime = datetime.fromtimestamp(int(args.datetime_override))
+    else:
+        current_datetime = datetime.now()
     parse(args.input_file, Path(args.output_dir), args.force)
 
 if __name__ == '__main__':
