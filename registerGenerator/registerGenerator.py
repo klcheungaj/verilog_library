@@ -281,6 +281,15 @@ def parse(input_file, output_dir, force_overwrite):
             reg_dict['reset_polarity'] = 0
         if 'offset' not in reg_dict:
             reg_dict['offset'] = 0
+        if 'params' not in reg_dict:
+            reg_dict['params'] = []
+        if 'addr_width' not in reg_dict:
+            raise KeyError("Users have to specify addr_width")
+        if 'data_width' not in reg_dict:
+            raise KeyError("Users have to specify data_width")
+        if reg_dict['data_width'] == 0 or reg_dict['addr_width'] == 0:
+            raise ValueError("data width and address width cannot be 0")
+
     verilog_file = output_dir.joinpath(filepath.stem + '.v')
     c_file = output_dir.joinpath(filepath.stem + '.h')
     if verilog_file.exists() or c_file.exists():
@@ -319,12 +328,15 @@ def parse(input_file, output_dir, force_overwrite):
             reg_type = reg['reg_type']
             port_def.append(RegDefine(port_name, pack_width, reg_type, None, reg_dict['data_width'], index))
             index += port_def[-1].reg_count
+    if len(port_def) == 0:
+        raise KeyError("No registers are defined")
 
     reg_count = 0
     for port in port_def:
         reg_count += port.reg_count
     if 2**reg_dict['addr_width'] < reg_count:
         raise ValueError(f"Address width {reg_dict['addr_width']} of the bus is less than number of register: {reg_count}")
+    
     verilog_code = io.StringIO()
     verilog_code.write(generate_verilog_module_header(filepath.stem, port_def, reg_dict))
     verilog_code.write(generate_verilog_module_body(port_def, reg_dict))
