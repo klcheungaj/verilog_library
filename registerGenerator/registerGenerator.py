@@ -282,7 +282,7 @@ def parse(input_file, output_dir, force_overwrite):
         if 'offset' not in reg_dict:
             reg_dict['offset'] = 0
     verilog_file = output_dir.joinpath(filepath.stem + '.v')
-    c_file = output_dir.joinpath(filepath.stem + '.c')
+    c_file = output_dir.joinpath(filepath.stem + '.h')
     if verilog_file.exists() or c_file.exists():
         if not force_overwrite:
             print(f"output file {verilog_file} or {c_file} already exists. Script exit")
