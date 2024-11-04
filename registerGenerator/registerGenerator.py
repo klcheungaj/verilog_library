@@ -291,7 +291,7 @@ def parse(input_file, output_dir, force_overwrite):
         if reg_dict['data_width'] == 0 or reg_dict['addr_width'] == 0:
             raise ValueError("data width and address width cannot be 0")
 
-    verilog_file = output_dir.joinpath(filepath.stem + '.v')
+    verilog_file = output_dir.joinpath(filepath.stem + '.sv')
     c_file = output_dir.joinpath(filepath.stem + '.h')
     if verilog_file.exists() or c_file.exists():
         if not force_overwrite:
