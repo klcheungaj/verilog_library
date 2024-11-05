@@ -45,8 +45,8 @@ generate
     end
 endgenerate
 
-logic [SEL_WID:0] temp;
 always_comb begin
+    logic [SEL_WID:0] temp;
     s_apb3_pready = 0;
     for (temp = 0; temp < NUM_MASTER; temp = temp + 1) begin
         if (s_apb3_paddr[MASTER_APB_AW +: SEL_WID] == temp[0 +: SEL_WID]) 
@@ -55,6 +55,7 @@ always_comb begin
 end
 
 always_comb begin
+    logic [SEL_WID:0] temp;
     s_apb3_prdata = 0;
     for (temp = 0; temp < NUM_MASTER; temp = temp + 1) begin
         if (s_apb3_paddr[MASTER_APB_AW +: SEL_WID] == temp[0 +: SEL_WID]) 
@@ -63,6 +64,7 @@ always_comb begin
 end
 
 always_comb begin
+    logic [SEL_WID:0] temp;
     s_apb3_pslverror = 0;
     for (temp = 0; temp < NUM_MASTER; temp = temp + 1) begin
         if (s_apb3_paddr[MASTER_APB_AW +: SEL_WID] == temp[0 +: SEL_WID])
