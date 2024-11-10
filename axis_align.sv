@@ -95,7 +95,6 @@ logic [AXIS_DW-1:0] r_tdata_remain = '0;
 logic [AXIS_KW-1:0] r_tkeep = '0;
 logic [AXIS_KW-1:0] r_tkeep_remain = '0;
 logic               r_tlast = '0;
-logic               r_tlast_2 = '0;
 logic               r_valid_override = '0;
 wire                s_beat_valid = s_axis_tvalid && s_axis_tready;
 wire                m_beat_valid = m_axis_tvalid && m_axis_tready;
@@ -105,8 +104,7 @@ assign `SETUP s_axis_tready = (state == IDLE || (state == ACTIVE && !m_axis_tval
 assign `SETUP m_axis_tvalid = m_axis_tlast || r_tkeep == '1 || r_valid_override;
 assign `SETUP m_axis_tkeep = r_tkeep[0 +: AXIS_KW];
 assign `SETUP m_axis_tdata = r_tdata[0 +: AXIS_DW];
-assign `SETUP m_axis_tlast = (r_tkeep_remain == '0 && r_tlast) || (m_axis_tkeep != '0 && r_tlast_2);
-
+assign `SETUP m_axis_tlast = r_tkeep_remain == '0 && r_tlast;
 always_ff @(posedge clk) begin
     if (rst) begin
         r_tkeep_remain <= '0;
@@ -114,7 +112,6 @@ always_ff @(posedge clk) begin
         r_tdata_remain <= '0;
         r_tdata <= '0;
         r_tlast <= '0;
-        r_tlast_2 <= '0;
     end else begin
         if (m_beat_valid) begin
             if (s_beat_valid) begin
@@ -132,16 +129,13 @@ always_ff @(posedge clk) begin
 
             if (m_beat_valid && m_axis_tlast) begin
                 r_tlast <= '0;
-                r_tlast_2 <= '0;
             end else if (s_beat_valid) begin
                 r_tlast <= s_axis_tlast;
-                r_tlast_2 <= r_tlast;
             end
         end else if (!m_axis_tvalid && s_beat_valid) begin
             {r_tkeep_remain, r_tkeep, r_tdata_remain, r_tdata} <= 
                 shift(r_tdata, s_axis_tdata, r_tkeep, s_axis_tkeep);
             r_tlast <= s_axis_tlast;
-            r_tlast_2 <= r_tlast;
         end
     end
 end
