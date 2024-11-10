@@ -2,6 +2,10 @@
 module axis_align_tb ();
 
 `define SETUP #0.5
+`define assert_stop(condition, msg) assert(condition) else begin \
+    $error(msg); \
+    $fatal(1); \
+end
 
 parameter PERIOD = 10;
 parameter AXIS_DW = 64;
@@ -78,15 +82,6 @@ initial begin
     #100 
     $display("test ended normally");
     $finish;
-end
-
-initial begin
-    fork
-        forever @(posedge clk) begin
-            if (m_axis_tvalid)
-                assert(m_axis_tkeep != '0);
-        end
-    join
 end
 
 logic [1:0] state = 0;
@@ -223,6 +218,7 @@ task checking();
     int recv_keep_cnt = 0;
     int recv_beats = 0;
     int send_beats = 0;
+    string msg;
     fork
         begin
             recv_keep_cnt = '0;
@@ -232,11 +228,11 @@ task checking();
                     recv_beats = recv_beats + 1;
                     recv_keep_cnt = recv_keep_cnt + count_ones(m_axis_tkeep);
                     if (m_axis_tlast) begin
-                        assert(m_axis_tkeep == push_ones_rightmost(m_axis_tkeep));
+                        `assert_stop(m_axis_tkeep == push_ones_rightmost(m_axis_tkeep), "ones of tkeep are not at right for last beat");
                     end else if (recv_beats == 1) begin
-                        assert(m_axis_tkeep == push_ones_leftmost(m_axis_tkeep));
+                        `assert_stop(m_axis_tkeep == push_ones_leftmost(m_axis_tkeep), "ones of tkeep are not at left for 1st beat");
                     end else begin
-                        assert(m_axis_tkeep == '1);
+                        `assert_stop(m_axis_tkeep == '1, "tkeep should be all one if not first of last transfer");
                     end
 
                     if (m_axis_tlast) begin
@@ -257,6 +253,14 @@ task checking();
                     send_beats = send_beats + 1;
                     send_keep_cnt = send_keep_cnt + count_ones(s_axis_tkeep);
                     if (s_axis_tlast) begin
+                        `assert_stop(s_axis_tkeep == push_ones_rightmost(s_axis_tkeep), "ones of tkeep are not at right for last beat");
+                    end else if (send_beats == 1) begin
+                        `assert_stop(s_axis_tkeep == push_ones_leftmost(s_axis_tkeep), "ones of tkeep are not at left for 1st beat");
+                    end else begin
+                        `assert_stop(s_axis_tkeep == '1, "tkeep should be all one if not first of last transfer");
+                    end
+
+                    if (s_axis_tlast) begin
                         $display("[%t] a burst sent. Number of beats: %d, Number of kept byte: %d", $realtime, send_beats, send_keep_cnt);
                         q_send_beats.push_back(send_beats);
                         q_send_keep_cnt.push_back(send_keep_cnt);
@@ -275,10 +279,9 @@ task checking();
                 if (q_recv_beats.size() != 0) begin
                     temp_recv = q_recv_beats.pop_front();
                     temp_send = q_send_beats.pop_front();
-                    assert(temp_recv <= temp_send) 
-                    else
-                        $error("[%t] number of receive beats (%d) is larger than number of send beats (%d)", 
+                    msg = $sformatf("[%t] number of receive beats (%d) is larger than number of send beats (%d)", 
                                     $realtime, temp_recv, temp_send);
+                    `assert_stop(temp_recv == temp_send || temp_recv + 1 == temp_send, msg);
                 end
             end
         end
@@ -290,10 +293,9 @@ task checking();
                 if (q_recv_keep_cnt.size() != 0) begin
                     temp_recv = q_recv_keep_cnt.pop_front();
                     temp_send = q_send_keep_cnt.pop_front();
-                    assert(temp_recv == temp_send) 
-                    else
-                        $error("[%t] number of receive keep byte (%d) is different from number of send keep byte (%d)", 
+                    msg = $sformatf("[%t] number of receive keep byte (%d) is different from number of send keep byte (%d)", 
                                     $realtime, temp_recv, temp_send);
+                    `assert_stop(temp_recv == temp_send, msg);
                 end
             end
         end
@@ -317,11 +319,31 @@ task checking();
                     for (int i=0 ; i<AXIS_KW ; i=i+1) begin
                         if (m_axis_tkeep[i]) begin
                             front = q_tdata.pop_front(); 
-                            assert(m_axis_tdata[i*8 +: 8] ==front) else 
-                                $error("[%t] m_axis_tdata: %x, index: %d, expected byte: %x", $realtime, m_axis_tdata, i, front);
+                            msg = $sformatf("[%t] m_axis_tdata: %x, index: %d, expected byte: %x", $realtime, m_axis_tdata, i, front);
+                            `assert_stop(m_axis_tdata[i*8 +: 8] == front, msg);
                         end
                     end
                 end
+            end
+        end
+
+        begin
+            forever @(posedge clk) begin
+                if (m_axis_tvalid)
+                    `assert_stop(m_axis_tkeep != '0, "tkeep should have at least one bit set")
+                
+                if (s_axis_tvalid)
+                    `assert_stop(s_axis_tkeep != '0, "tkeep should have at least one bit set")
+            end
+        end
+        
+        begin
+            int diff = 0;
+            forever @(posedge clk) begin
+                diff = q_send_beats.size() - q_recv_beats.size();
+                `assert_stop($abs(diff) < 2, "The sizes of send beat queue and receive beat queue differ by more than 1");
+                diff = q_send_keep_cnt.size() - q_recv_keep_cnt.size();
+                `assert_stop($abs(diff) < 2, "The sizes of send tkeep queue and receive tkeep queue differ by more than 1");
             end
         end
     join
