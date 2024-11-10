@@ -108,8 +108,8 @@ always_ff @(posedge clk) begin
 
         1: begin
             if (!s_axis_tvalid || (s_axis_tready && s_axis_tvalid)) begin
-                s_axis_tdata <= `SETUP {$urandom(s1), $urandom(s2)};
-                s_axis_tvalid <= `SETUP $urandom(s3);
+                s_axis_tdata <= `SETUP {$urandom(), $urandom()};
+                s_axis_tvalid <= `SETUP $urandom();
                 if (send_cnt + 1 == target_send_cnt) begin // last beat or maybe first beat
                     s_axis_tkeep <= `SETUP rand_ones_rightmost();
                 end else if (send_cnt == 0 && !s_axis_tvalid) begin   // first beat 
@@ -152,7 +152,7 @@ always_ff @(posedge clk) begin
     if (rst) begin
         m_axis_tready <= 0;
     end else begin
-        m_axis_tready <= `SETUP $urandom(seed);
+        m_axis_tready <= `SETUP $urandom();
     end
 end
 
@@ -192,7 +192,7 @@ endfunction
 function logic [AXIS_KW-1:0] rand_ones_rightmost();
     integer num;
     rand_ones_rightmost  = 0;
-    num = ($urandom(s4) % AXIS_KW) + 1;
+    num = ($urandom() % AXIS_KW) + 1;
     for (int i=0 ; i<AXIS_KW ; i=i+1) begin
         if (i < num)
             rand_ones_rightmost[i] = 1'b1;
@@ -204,7 +204,7 @@ endfunction
 function logic [AXIS_KW-1:0] rand_ones_leftmost();
     integer num;
     rand_ones_leftmost  = 0;
-    num = ($urandom(s5) % AXIS_KW) + 1;
+    num = ($urandom() % AXIS_KW) + 1;
     for (int i=0 ; i<AXIS_KW ; i=i+1) begin
         if (i < num)
             rand_ones_leftmost[AXIS_KW-1-i] = 1'b1;
