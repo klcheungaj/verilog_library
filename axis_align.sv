@@ -1,23 +1,21 @@
 
-/**
- * cases: 
- *  1: tkeep all 1
- *  2: tkeep all 1, one cycle tlast
- *  3: tkeep not all 1
- *  4: tkeep not all 1, one cycle tlast
- */
-
 `timescale 1ns/10ps
 
 `define SETUP #0.5
 
+/**
+ * @warning this module supports following cases only:
+ *          1. bit of 1st beat start from MS bit, e.g. 4'b1100 or 4'b1111
+ *          2. bit of last beat start from LS bit, e.g. 4'b0011 or 4'b1111
+ *          3. s_tvalid is continuous aligned or unaligned. Sparse tkeep (e.g. 4'b1010) is not supported
+ */
 module axis_align #(
     parameter AXIS_DW = 64,
     parameter AXIS_KW = ((AXIS_DW-1)>>3)+1
 ) (
     input                      clk,
     input                      rst,
-    input                      s_axis_tvalid,   // @warning: assume s_tvalid is continuous during a burst
+    input                      s_axis_tvalid,
     output                     s_axis_tready,
     input  [AXIS_DW-1:0]       s_axis_tdata,
     input  [AXIS_KW-1:0]       s_axis_tkeep,
@@ -33,11 +31,9 @@ module axis_align #(
 function logic [AXIS_DW*2+AXIS_KW*2-1:0] shift (
     input logic [AXIS_DW-1:0] cur_tdata,
     input logic [AXIS_DW-1:0] new_tdata, 
-    input logic [AXIS_KW-1:0] cur_tkeep,// @warning: assume kept bit start from MS bit, e.g. 4'b1100 or 4'b1111
-    input logic [AXIS_KW-1:0] new_tkeep // @warning: assume kept bit start from LS bit, e.g. 4'b0011 or 4'b1111
+    input logic [AXIS_KW-1:0] cur_tkeep,
+    input logic [AXIS_KW-1:0] new_tkeep 
 );
-    // logic [AXIS_DW*2-1:0] in_tdata = {new_tdata, cur_tdata};
-    // logic [AXIS_KW*2-1:0] in_tkeep = {new_tkeep, cur_tkeep};
     logic [AXIS_DW*2-1:0] temp_tdata;
     logic [AXIS_KW*2-1:0] temp_tkeep;
     logic [AXIS_DW-1:0] out_tdata;
@@ -57,8 +53,6 @@ function logic [AXIS_DW*2+AXIS_KW*2-1:0] shift (
             temp_tkeep = temp_tkeep;
             temp_tdata = temp_tdata;
         end
-        // $display("temp_tdata: %x", temp_tdata);
-        // $display("temp_tkeep: %x", temp_tkeep);
     end
 
     out_tdata = temp_tdata[0 +: AXIS_DW];
@@ -74,14 +68,10 @@ function logic [AXIS_DW*2+AXIS_KW*2-1:0] shift (
             temp_tkeep = temp_tkeep;
             temp_tdata = temp_tdata;
         end
-        // $display("temp_tdata: %x", temp_tdata);
-        // $display("temp_tkeep: %x", temp_tkeep);
     end
     remain_tdata = temp_tdata[AXIS_DW +: AXIS_DW];
     remain_tkeep = temp_tkeep[0 +: AXIS_KW];
-    // $display("after temp_tkeep: %x", temp_tkeep);
-    // $display("after temp_tdata: %x", temp_tdata);
-return {remain_tkeep, out_tkeep, remain_tdata, out_tdata};
+    return {remain_tkeep, out_tkeep, remain_tdata, out_tdata};
 endfunction
 
 typedef enum logic [1:0] {
@@ -178,13 +168,5 @@ always_ff @(posedge clk) begin
         endcase
     end
 end
-
-// always_ff @(posedge clk) begin
-//     if (s_beat_valid)
-//         $display("[%t] slave handshake", $realtime);
-    
-//     if (m_beat_valid)
-//         $display("[%t] master handshake", $realtime);
-// end
 
 endmodule
