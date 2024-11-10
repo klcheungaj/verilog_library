@@ -218,7 +218,6 @@ task checking();
     int recv_keep_cnt = 0;
     int recv_beats = 0;
     int send_beats = 0;
-    string msg;
     fork
         begin
             recv_keep_cnt = '0;
@@ -279,9 +278,9 @@ task checking();
                 if (q_recv_beats.size() != 0) begin
                     temp_recv = q_recv_beats.pop_front();
                     temp_send = q_send_beats.pop_front();
-                    msg = $sformatf("[%t] number of receive beats (%d) is larger than number of send beats (%d)", 
-                                    $realtime, temp_recv, temp_send);
-                    `assert_stop(temp_recv == temp_send || temp_recv + 1 == temp_send, msg);
+                    `assert_stop(temp_recv == temp_send || temp_recv + 1 == temp_send, 
+                                    $sformatf("[%t] number of receive beats (%d) is larger than or too less than number of send beats (%d)", 
+                                    $realtime, temp_recv, temp_send));
                 end
             end
         end
@@ -293,9 +292,9 @@ task checking();
                 if (q_recv_keep_cnt.size() != 0) begin
                     temp_recv = q_recv_keep_cnt.pop_front();
                     temp_send = q_send_keep_cnt.pop_front();
-                    msg = $sformatf("[%t] number of receive keep byte (%d) is different from number of send keep byte (%d)", 
-                                    $realtime, temp_recv, temp_send);
-                    `assert_stop(temp_recv == temp_send, msg);
+                    `assert_stop(temp_recv == temp_send, 
+                                    $sformatf("[%t] number of receive keep byte (%d) is different from number of send keep byte (%d)", 
+                                    $realtime, temp_recv, temp_send));
                 end
             end
         end
@@ -319,8 +318,8 @@ task checking();
                     for (int i=0 ; i<AXIS_KW ; i=i+1) begin
                         if (m_axis_tkeep[i]) begin
                             front = q_tdata.pop_front(); 
-                            msg = $sformatf("[%t] m_axis_tdata: %x, index: %d, expected byte: %x", $realtime, m_axis_tdata, i, front);
-                            `assert_stop(m_axis_tdata[i*8 +: 8] == front, msg);
+                            `assert_stop(m_axis_tdata[i*8 +: 8] == front, 
+                                            $sformatf("[%t] m_axis_tdata: %x, index: %d, expected byte: %x", $realtime, m_axis_tdata, i, front));
                         end
                     end
                 end
