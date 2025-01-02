@@ -33,9 +33,17 @@ reg [DATA_WIDTH-1:0] mem [RAM_DEPTH-1:0];
 
 reg [DATA_WIDTH-1:0] mem_rdata; 
 
+integer i;
+initial begin
+  for (i=0 ; i<RAM_DEPTH ; i=i+1) begin
+    mem[i] = {DATA_WIDTH{1'b0}};
+  end
+end
 
 always @(posedge mem_rd_clk)
-  if(mem_rd_en)
+  if (!mem_rd_rst_n)
+    mem_rdata <= {DATA_WIDTH{1'b0}};
+  else if(mem_rd_en)
     mem_rdata <= mem [mem_raddr];
 /*
   always @(posedge mem_rd_clk)
