@@ -25,18 +25,19 @@ module raw2rgb #(
     parameter MAX_VRES = 1080,
     parameter MAX_HTOTAL = 2200,  // including HRES(H_ACTIVE), HSA, HBP and HFP. 
     parameter MAX_VTOTAL = 1125,
+    // parameter PATTERN = "GBRG",  // bayer filter pattern. RGGB, GRBG, GBRG, BGGR
     parameter PATTERN = "GBRG",  // bayer filter pattern. RGGB, GRBG, GBRG, BGGR
     localparam Y_ACT_WID = $clog2(MAX_VRES),
     localparam X_ACT_WID = $clog2(MAX_HRES)
 ) (
-    input i_pclk,
-    input i_rstn,
+    input                           i_pclk,
+    input                           i_rstn,
 
-	input	                         i_vsync,
-	input	                         i_hsync,
-	input	                         i_de,
-	input	                         i_valid,
-    input   [PW * IN_PCNT-1:0]       i_raw,
+	input	                        i_vsync,
+	input	                        i_hsync,
+	input	                        i_de,
+	input	                        i_valid,
+    input   [PW * IN_PCNT-1:0]      i_raw,
 
 	output	                        o_vsync,
 	output	                        o_hsync,
@@ -88,28 +89,32 @@ logic [1:0] rd_lb_sel = 0;    //line buffer sel
 logic [2:0] valid_cnt = 0;
 logic       rd_region_sel_line1 = 0;
 logic       rd_region_sel_line2 = 0;
-logic       rd_region_sel_line3 = 0;
-logic       r_line_in_3L;
-logic	    w_de_3L;
-logic	    w_valid_3L;
-logic	    w_hsync_3L;
-logic	    w_vsync_3L;
-logic	    de_3L_r1;
-logic	    valid_3L_r1;
-logic	    hsync_3L_r1;
-logic	    vsync_3L_r1;
-logic	    de_3L_r2;
-logic	    valid_3L_r2;
-logic	    hsync_3L_r2;
-logic	    vsync_3L_r2;
-logic	    de_3L_r3;
-logic	    valid_3L_r3;
-logic	    hsync_3L_r3;
-logic	    vsync_3L_r3;
-logic	    de_3L_r4;
-logic	    valid_3L_r4;
-logic	    hsync_3L_r4;
-logic	    vsync_3L_r4;
+logic       rd_region_sel_line3 = 1;
+logic       r_line_in_2L;
+logic	    w_de_2L;
+logic	    w_valid_2L;
+logic	    w_hsync_2L;
+logic	    w_vsync_2L;
+logic	    de_2L_r1;
+logic	    valid_2L_r1;
+logic	    hsync_2L_r1;
+logic	    vsync_2L_r1;
+logic	    de_2L_r2;
+logic	    valid_2L_r2;
+logic	    hsync_2L_r2;
+logic	    vsync_2L_r2;
+logic	    de_2L_r3;
+logic	    valid_2L_r3;
+logic	    hsync_2L_r3;
+logic	    vsync_2L_r3;
+logic	    de_2L_r4;
+logic	    valid_2L_r4;
+logic	    hsync_2L_r4;
+logic	    vsync_2L_r4;
+logic	    de_2L_r5;
+logic	    valid_2L_r5;
+logic	    hsync_2L_r5;
+logic	    vsync_2L_r5;
 logic [PW * OUT_PCNT-1:0] dout_line3_r1;
 logic [PW * OUT_PCNT-1:0] dout_line1_r1;
 logic [PW * OUT_PCNT-1:0] dout_line2_r1;
@@ -132,20 +137,20 @@ logic [PW+3-1:0] r_b[OUT_PCNT];
 logic [PW * OUT_PCNT-1:0] r_r_clamp;
 logic [PW * OUT_PCNT-1:0] r_g_clamp;
 logic [PW * OUT_PCNT-1:0] r_b_clamp;
-assign o_vsync = vsync_3L_r4;
-assign o_hsync = hsync_3L_r4;
-assign o_de = de_3L_r4;
-assign o_valid = valid_3L_r4; 
+assign o_vsync = vsync_2L_r5;
+assign o_hsync = hsync_2L_r5;
+assign o_de = de_2L_r5;
+assign o_valid = valid_2L_r5; 
 assign o_r = r_r_clamp;
 assign o_g = r_g_clamp;
 assign o_b = r_b_clamp;
 assign o_y_cnt = y_active_cnt_r2;
 assign o_x_cnt = x_active_cnt_r2;
 
-assign w_dout_line1 = rd_lb_sel == 0 ? w_dout1 : rd_lb_sel == 1 ? w_dout2 : w_dout3; 
-assign w_dout_line2 = rd_lb_sel == 0 ? w_dout2 : rd_lb_sel == 1 ? w_dout3 : w_dout1; 
-assign w_dout_line3 = rd_lb_sel == 0 ? w_dout3 : rd_lb_sel == 1 ? w_dout1 : w_dout2; 
-assign w_raw_line1_cat = {w_dout_line1, dout_line1_r1, dout_line1_r2};
+assign w_dout_line1 = y_active_cnt == 0 ? '0 : rd_lb_sel == 0 ? w_dout3 : rd_lb_sel == 1 ? w_dout1 : w_dout2; 
+assign w_dout_line2 = rd_lb_sel == 0 ? w_dout1 : rd_lb_sel == 1 ? w_dout2 : w_dout3; 
+assign w_dout_line3 = rd_lb_sel == 0 ? w_dout2 : rd_lb_sel == 1 ? w_dout3 : w_dout1; 
+assign w_raw_line1_cat = {w_dout_line1, dout_line1_r1, dout_line1_r2};  // {3, 2, 1, 0, -1}
 assign w_raw_line2_cat = {w_dout_line2, dout_line2_r1, dout_line2_r2};
 assign w_raw_line3_cat = {w_dout_line3, dout_line3_r1, dout_line3_r2};
 
@@ -154,22 +159,26 @@ always_ff @(posedge i_pclk or negedge i_rstn) begin : pipelining
     if (!i_rstn) begin
         hsync_r1 <= '0;
         de_r1 <= '0;
-        valid_3L_r1 <= '0;
-        de_3L_r1 <= '0;
-        hsync_3L_r1 <= '0;
-        vsync_3L_r1 <= '0;
-        de_3L_r2 <= '0;
-        valid_3L_r2 <= '0;
-        hsync_3L_r2 <= '0;
-        vsync_3L_r2 <= '0;
-        de_3L_r3 <= '0;
-        valid_3L_r3 <= '0;
-        hsync_3L_r3 <= '0;
-        vsync_3L_r3 <= '0;
-        de_3L_r4 <= '0;
-        valid_3L_r4 <= '0;
-        hsync_3L_r4 <= '0;
-        vsync_3L_r4 <= '0;
+        valid_2L_r1 <= '0;
+        de_2L_r1 <= '0;
+        hsync_2L_r1 <= '0;
+        vsync_2L_r1 <= '0;
+        de_2L_r2 <= '0;
+        valid_2L_r2 <= '0;
+        hsync_2L_r2 <= '0;
+        vsync_2L_r2 <= '0;
+        de_2L_r3 <= '0;
+        valid_2L_r3 <= '0;
+        hsync_2L_r3 <= '0;
+        vsync_2L_r3 <= '0;
+        de_2L_r4 <= '0;
+        valid_2L_r4 <= '0;
+        hsync_2L_r4 <= '0;
+        vsync_2L_r4 <= '0;
+        de_2L_r5 <= '0;
+        valid_2L_r5 <= '0;
+        hsync_2L_r5 <= '0;
+        vsync_2L_r5 <= '0;
         dout_line1_r1 <= '0;
         dout_line2_r1 <= '0;
         dout_line3_r1 <= '0;
@@ -189,44 +198,49 @@ always_ff @(posedge i_pclk or negedge i_rstn) begin : pipelining
         // -- adjust valid duty cycle
         // -----------------------------------------------------------------------------
         //TODO: support other IN_PCNT and OUT_PCNT values
-        if (!w_valid_3L) begin
+        if (!w_valid_2L) begin
             valid_cnt <= valid_cnt + 1;
-            if (w_de_3L && (valid_cnt + 1 < (IN_PCNT / OUT_PCNT)))
-                valid_3L_r1 <= 1;
+            if (w_de_2L && (valid_cnt + 1 < (IN_PCNT / OUT_PCNT)))
+                valid_2L_r1 <= 1;
             else
-                valid_3L_r1 <= 0;
+                valid_2L_r1 <= 0;
         end else begin
             valid_cnt <= 0;
-            valid_3L_r1 <= 1;
+            valid_2L_r1 <= 1;
         end
-        de_3L_r1 <= w_de_3L;        
-        hsync_3L_r1 <= w_hsync_3L;
-        vsync_3L_r1 <= w_vsync_3L;
+        de_2L_r1 <= w_de_2L;        
+        hsync_2L_r1 <= w_hsync_2L;
+        vsync_2L_r1 <= w_vsync_2L;
         
         // -------------------------------------------------------
         // -- delay by 1 cycle before Counting x_active and y_active and debayer stage
         // -------------------------------------------------------
-        de_3L_r2 <= de_3L_r1;
-        valid_3L_r2 <= valid_3L_r1;
-        hsync_3L_r2 <= hsync_3L_r1;
-        vsync_3L_r2 <= vsync_3L_r1;
+        de_2L_r2 <= de_2L_r1;
+        valid_2L_r2 <= valid_2L_r1;
+        hsync_2L_r2 <= hsync_2L_r1;
+        vsync_2L_r2 <= vsync_2L_r1;
 
         // -------------------------------------------------------
         // -- clamp stage
         // -------------------------------------------------------
-        de_3L_r3 <= de_3L_r2;
-        valid_3L_r3 <= valid_3L_r2;
-        hsync_3L_r3 <= hsync_3L_r2;
-        vsync_3L_r3 <= vsync_3L_r2;
+        de_2L_r3 <= de_2L_r2;
+        valid_2L_r3 <= valid_2L_r2;
+        hsync_2L_r3 <= hsync_2L_r2;
+        vsync_2L_r3 <= vsync_2L_r2;
         // -------------------------------------------------------
         // -- output stage
         // -------------------------------------------------------
-        de_3L_r4 <= de_3L_r3;
-        valid_3L_r4 <= valid_3L_r3;
-        hsync_3L_r4 <= hsync_3L_r3;
-        vsync_3L_r4 <= vsync_3L_r3;
+        de_2L_r4 <= de_2L_r3;
+        valid_2L_r4 <= valid_2L_r3;
+        hsync_2L_r4 <= hsync_2L_r3;
+        vsync_2L_r4 <= vsync_2L_r3;
 
-        if (de_3L_r1 && valid_3L_r1) begin
+        de_2L_r5 <= de_2L_r4;
+        valid_2L_r5 <= valid_2L_r4;
+        hsync_2L_r5 <= hsync_2L_r4;
+        vsync_2L_r5 <= vsync_2L_r4;
+
+        if (de_2L_r1 && valid_2L_r1) begin
             dout_line1_r1 <= w_dout_line1;
             dout_line2_r1 <= w_dout_line2;
             dout_line3_r1 <= w_dout_line3;
@@ -249,7 +263,7 @@ always_ff @(posedge i_pclk or negedge i_rstn) begin : write_control
         wr_region_sel <= '0;
         r_line_cnt <= '0;
         r_line_in_1L <= '0;
-        r_line_in_3L <= '0;
+        r_line_in_2L <= '0;
     end else begin
         if (~i_hsync) begin
             in_xcnt <= '0;
@@ -275,8 +289,8 @@ always_ff @(posedge i_pclk or negedge i_rstn) begin : write_control
 		if (r_line_cnt == 1)
 			r_line_in_1L	<= 1'b1;
 		
-		if (r_line_cnt == 3)
-			r_line_in_3L	<= 1'b1;
+		if (r_line_cnt == 2)
+			r_line_in_2L	<= 1'b1;
     end
 end
 
@@ -287,38 +301,38 @@ always_ff @(posedge i_pclk or negedge i_rstn) begin : read_control
         rd_lb_sel <= '0;
         rd_region_sel_line1 <= '0;
         rd_region_sel_line2 <= '0;
-        rd_region_sel_line3 <= '0;
+        rd_region_sel_line3 <= 1;
     end else begin
-        if (!vsync_3L_r1) begin
+        if (!vsync_2L_r1) begin
             y_active_cnt <= '0;
-        end else if (de_3L_r3 && ~de_3L_r2) begin
+        end else if (de_2L_r3 && ~de_2L_r2) begin
             y_active_cnt <= y_active_cnt + 1;
         end
 
-        if (!hsync_3L_r1) begin
+        if (!hsync_2L_r1) begin
             x_active_cnt <= '0;
-        end else if (valid_3L_r1 && de_3L_r1) begin
+        end else if (valid_2L_r1 && de_2L_r1) begin
             x_active_cnt <= x_active_cnt + OUT_PCNT;
         end
         
-        if (!vsync_3L_r1) begin
+        if (!vsync_2L_r1) begin
             rd_lb_sel <= '0;
             rd_region_sel_line1 <= '0;
             rd_region_sel_line2 <= '0;
-            rd_region_sel_line3 <= '0;
-        end else if (de_3L_r3 && ~de_3L_r2) begin
+            rd_region_sel_line3 <= 1;
+        end else if (de_2L_r3 && ~de_2L_r2) begin
             case (rd_lb_sel)
                 0: begin
                     rd_lb_sel <= 1;
-                    rd_region_sel_line1 <= !rd_region_sel_line1;
+                    rd_region_sel_line3 <= !rd_region_sel_line3;
                 end
                 1: begin
                     rd_lb_sel <= 2;
-                    rd_region_sel_line2 <= !rd_region_sel_line2;
+                    rd_region_sel_line1 <= !rd_region_sel_line1;
                 end
                 2: begin
                     rd_lb_sel <= 0;
-                    rd_region_sel_line3 <= !rd_region_sel_line3;
+                    rd_region_sel_line2 <= !rd_region_sel_line2;
                 end
                 default: rd_lb_sel <= 0;
             endcase
@@ -407,7 +421,7 @@ simple_dual_port_ram_asym #(
     
     .rclk(i_pclk),
     .raddr({rd_region_sel_line1, x_active_cnt[X_ACT_WID-1:$clog2(OUT_PCNT)]}),
-    .re(de_3L_r1 && valid_3L_r1), 
+    .re(de_2L_r1 && valid_2L_r1), 
     .rdata(w_dout1)
 );
 
@@ -426,7 +440,7 @@ simple_dual_port_ram_asym #(
     
     .rclk(i_pclk),
     .raddr({rd_region_sel_line2, x_active_cnt[X_ACT_WID-1:$clog2(OUT_PCNT)]}),
-    .re(de_3L_r1 && valid_3L_r1), 
+    .re(de_2L_r1 && valid_2L_r1), 
     .rdata(w_dout2)
 );
 
@@ -445,7 +459,7 @@ simple_dual_port_ram_asym #(
     
     .rclk(i_pclk),
     .raddr({rd_region_sel_line3, x_active_cnt[X_ACT_WID-1:$clog2(OUT_PCNT)]}),
-    .re(de_3L_r1 && valid_3L_r1), 
+    .re(de_2L_r1 && valid_2L_r1), 
     .rdata(w_dout3)
 );
 
@@ -459,9 +473,9 @@ fifo #(
   .clk 		(i_pclk	),
   .nrst 	(i_rstn	),
   .we 		(r_line_in_1L),
-  .re 		(r_line_in_3L),
+  .re 		(r_line_in_2L),
   .data_in 	({i_de, i_valid, i_hsync, i_vsync}			),
-  .data_out ({w_de_3L, w_valid_3L, w_hsync_3L, w_vsync_3L}	)
+  .data_out ({w_de_2L, w_valid_2L, w_hsync_2L, w_vsync_2L}	)
 );
 
 endmodule
