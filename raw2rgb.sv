@@ -9,13 +9,19 @@
  * 6. if de is HIGH, hsync must also be HIGH
  * 7. if hsync is HIGH, vsync must also be HIGH
  * 8. porch much be larger than 1. No matter veritcal or horizontaol, front or back
- * 12. when PCNT is larger than 1, the first pixel is in low byte side. i.e. PIXEl1 - PIXEL 0
+ * 9. when PCNT is larger than 1, the first pixel is in low byte side. i.e. PIXEl1 - PIXEL 0
  * 
  * behavior:
- * 1. input sync signals are delayed by 2 lines + 2 clock cycles
+ * 1. input sync signals are delayed by 1 lines + 5 clock cycles to get output sync signals
+ * 2. Users should generated sync signals based on output pixel count.
+ *    For example, if you want to output 1080 pixels and OUT_PCNT is 2. Then o_valid 
+ *    should have 1080/2=540 count in 1 line. Since output sync signals are the same
+ *    as input sync signals, i_valid should also be of 540 counts. If IN_PCNT is 4, 
+ *    only the data in the 1st half of i_valid is meaningful. The data in the 2nd half 
+ *    i_valid is not used.
  * 
  * TODO:
- * 1. first/last line & pixel should be all 0
+ * 1. Support other IN_PCNT and OUT_PCNT combination
  */
 module raw2rgb #(
     parameter PW = 8,           // pixel data width
