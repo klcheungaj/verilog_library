@@ -48,7 +48,7 @@ always_ff @(posedge wr_clk or negedge wr_rstn) begin
     end else begin
         vs_r <= wr_vsync;
 
-        if (!wr_vsync && vs_r) begin
+        if (!vs_r && wr_vsync) begin    // rising edge
             frame_cnt <= frame_cnt + 1;
         end
     end
@@ -67,8 +67,9 @@ always_ff @(posedge rd_clk or negedge rd_rstn) begin
         vsync_rd_r2 <= '0;
         wr_frame_idx <= '0;
         valid_wr_frame <= '0;
-        rd_frame_idx <= '0;
+        rd_frame_idx <= '1;
     end else begin
+        // TODO: synchronizer for frame_cnt should use handshaking
         frame_cnt_rd <= frame_cnt;
         frame_cnt_rd_r1 <= frame_cnt_rd;
         frame_cnt_rd_r2 <= frame_cnt_rd_r1;
@@ -89,7 +90,7 @@ always_ff @(posedge rd_clk or negedge rd_rstn) begin
             end
         end
 
-        if (!vsync_rd_r2 && vsync_rd_r1) begin
+        if (!vsync_rd_r2 && vsync_rd_r1) begin  // rising edge
             if (FRAME_CNT_WID'(rd_frame_idx + 1'b1) == wr_frame_idx) begin //frame buffer (memory) is empty, use the last frame
                 rd_frame_idx <= rd_frame_idx;
                 debug_same_rd <= debug_same_rd + 1;
