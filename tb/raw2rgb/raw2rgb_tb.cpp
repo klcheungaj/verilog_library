@@ -41,8 +41,11 @@ SC_MODULE(top_tb) {
         SIM_STATE_END_WITH_ERR
     };
 
-    void showPicture() {
+    void savePicture(int cnt) {
         using namespace cv;
+        char buf[20];
+        int len = snprintf(buf, 20, "logs/debayer%d.bmp", cnt);
+
         Mat m = Mat(270, 480, CV_8UC3);
         cout << "memory size: " << memory.size() << endl;
         cout << "Mat size: " << m.size() << endl;
@@ -51,7 +54,7 @@ SC_MODULE(top_tb) {
         // memcpy(m.data, memory.data(), 480*270*3);
         cout << memory.data() << endl;
         // imshow("debayer picture", m);
-        imwrite("logs/debayer.bmp", m);
+        imwrite(buf, m);
     }
 
 private:
@@ -95,13 +98,17 @@ private:
             wait(clk.posedge_event()); // @(posedge clk)
             ++clk_cnt;
 
-            if (frame_cnt > 0) {
+            if (frame_cnt > 4) {
                 state = SIM_STATE_END_NO_ERR;
             }
 
             if (r1_vsync && !o_vsync) {
                 ++frame_cnt;
                 cout << "frame count: " << frame_cnt << endl;
+                savePicture(frame_cnt);
+                memset(memory.data(), 0, 270*480*3);
+                x_cnt = 0;
+                y_cnt = 0;
             }
 
             if (r1_de && !o_de) {
@@ -209,7 +216,6 @@ int sc_main(int argc, char* argv[]) {
         printf("[error] simulation end early due to error. Simulation time: %s\r\n", sc_time_stamp().to_string().c_str());
     } else {
         printf("[info] simulation end normally. Simulation time: %s\r\n", sc_time_stamp().to_string().c_str());
-        tb->showPicture();
     }
     tb->print_result();
 

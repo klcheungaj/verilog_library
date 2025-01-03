@@ -36,41 +36,198 @@ wire [PW * OUT_PCNT*3 -1:0] o_r;
 wire [PW * OUT_PCNT*3 -1:0] o_g;
 wire [PW * OUT_PCNT*3 -1:0] o_b;
 
+reg [PW-1:0] horibar_r;
+reg [PW-1:0] horibar_g;
+reg [PW-1:0] horibar_b;
+reg [PW-1:0] vertbar_r;
+reg [PW-1:0] vertbar_g;
+reg [PW-1:0] vertbar_b;
+
+reg r_vsync = 0;
+int frame_cnt = 0;
+
+always @(posedge clk) begin
+    if (!rstn) begin
+        frame_cnt <= '0;
+        r_vsync <= '0;
+    end else begin
+        r_vsync <= o_vsync;
+        
+        if (r_vsync && !o_vsync) begin
+            frame_cnt <= frame_cnt + 1;
+        end
+    end
+end
+
 assign o_rgb = {
     o_b[8 +: 8], o_g[8 +: 8], o_r[8 +: 8],
     o_b[0 +: 8], o_g[0 +: 8], o_r[0 +: 8]
 };
 
 always_comb begin
+    case (vga_x[4 +: 3])
+    0: begin
+        horibar_r = '1;
+        horibar_g = '1;
+        horibar_b = '1;
+    end
+
+    1: begin
+        horibar_r = '1;
+        horibar_g = '1;
+        horibar_b = '0;
+    end
+
+    2: begin
+        horibar_r = '0;
+        horibar_g = '1;
+        horibar_b = '1;
+    end
+
+    3: begin
+        horibar_r = '0;
+        horibar_g = '1;
+        horibar_b = '0;
+    end
+
+    4: begin
+        horibar_r = '1;
+        horibar_g = '0;
+        horibar_b = '1;
+    end
+
+    5: begin
+        horibar_r = '1;
+        horibar_g = '0;
+        horibar_b = '0;
+    end
+
+    6: begin
+        horibar_r = '0;
+        horibar_g = '0;
+        horibar_b = '1;
+    end
+
+    7: begin
+        horibar_r = '0;
+        horibar_g = '0;
+        horibar_b = '0;
+    end
+    endcase
+end
+
+always_comb begin
+    case (vga_y[5 +: 3])
+    0: begin
+        vertbar_r = '1;
+        vertbar_g = '1;
+        vertbar_b = '1;
+    end
+
+    1: begin
+        vertbar_r = '1;
+        vertbar_g = '1;
+        vertbar_b = '0;
+    end
+
+    2: begin
+        vertbar_r = '0;
+        vertbar_g = '1;
+        vertbar_b = '1;
+    end
+
+    3: begin
+        vertbar_r = '0;
+        vertbar_g = '1;
+        vertbar_b = '0;
+    end
+
+    4: begin
+        vertbar_r = '1;
+        vertbar_g = '0;
+        vertbar_b = '1;
+    end
+
+    5: begin
+        vertbar_r = '1;
+        vertbar_g = '0;
+        vertbar_b = '0;
+    end
+
+    6: begin
+        vertbar_r = '0;
+        vertbar_g = '0;
+        vertbar_b = '1;
+    end
+
+    7: begin
+        vertbar_r = '0;
+        vertbar_g = '0;
+        vertbar_b = '0;
+    end
+    endcase
+end
+
+always_comb begin
     // GBGB
     // RGRG
-    case ({vga_y[0], vga_x[0]})
-    // all green
-    0, 1: begin
-        vga_raw = {8'h0, 8'(255-vga_y), 8'h00, 8'(255-vga_y)};
+
+    case (frame_cnt)
+    0: begin
+        case ({vga_y[0], vga_x[0]})
+        // all green
+        0, 1: begin
+            vga_raw = {8'h0, 8'(255-vga_y), 8'h00, 8'(255-vga_y)};
+        end
+
+        2, 3: begin
+            vga_raw = {8'(255-vga_y), 8'h00, 8'(255-vga_y), 8'h0};
+        end
+        endcase
     end
 
-    2, 3: begin
-        vga_raw = {8'(255-vga_y), 8'h00, 8'(255-vga_y), 8'h0};
+    1: begin
+        case ({vga_y[0], vga_x[0]})
+        // all blue
+        0, 1: begin
+            vga_raw = {8'(255-vga_y), 8'h00, 8'(255-vga_y), 8'h0};
+        end
+
+        2, 3: begin
+            vga_raw = '0;
+        end
+        endcase
     end
 
-    // all blue
-    0, 1: begin
-        vga_raw = {8'(255-vga_y), 8'h00, 8'(255-vga_y), 8'h0};
+    2: begin
+        case ({vga_y[0], vga_x[0]})
+        // all red
+        0, 1: begin
+            vga_raw = '0;
+        end
+
+        2, 3: begin
+            vga_raw = {8'h0, 8'(255-vga_y), 8'h00, 8'(255-vga_y)};
+        end
+        endcase
     end
 
-    // 2, 3: begin
-    //     vga_raw = '0;
-    // end
-    
-    // // all red
-    // 0, 1: begin
-    //     vga_raw = '0;
-    // end
+    3: begin
+        if (vga_y[0] == 0)
+            vga_raw = {horibar_b, horibar_g, horibar_b, horibar_g};
+        else
+            vga_raw = {horibar_g, horibar_r, horibar_g, horibar_r};
+    end
 
-    // 2, 3: begin
-    //     vga_raw = {8'h0, 8'(255-vga_y), 8'h00, 8'(255-vga_y)};
-    // end
+    4: begin
+        if (vga_y[0] == 0)
+            vga_raw = {vertbar_b, vertbar_g, vertbar_b, vertbar_g};
+        else
+            vga_raw = {vertbar_g, vertbar_r, vertbar_g, vertbar_r};
+    end
+
+    default: $finish();
+
     endcase
 end
 
