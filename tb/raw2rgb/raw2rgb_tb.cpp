@@ -98,7 +98,7 @@ private:
             wait(clk.posedge_event()); // @(posedge clk)
             ++clk_cnt;
 
-            if (frame_cnt > 4) {
+            if (frame_cnt > 1) {
                 state = SIM_STATE_END_NO_ERR;
             }
 

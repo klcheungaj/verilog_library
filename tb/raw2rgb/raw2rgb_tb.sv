@@ -23,6 +23,7 @@ module raw2rgb_tb #(
 
 parameter HRES = 480;
 parameter VRES = 270;
+parameter PATTERN = "GBRG";
 
 wire [            11:0] vga_x;
 wire [            11:0] vga_y;
@@ -169,61 +170,71 @@ always_comb begin
 end
 
 always_comb begin
-    // GBGB
-    // RGRG
-
     case (frame_cnt)
     0: begin
-        case ({vga_y[0], vga_x[0]})
-        // all green
-        0, 1: begin
-            vga_raw = {8'h0, 8'(255-vga_y), 8'h00, 8'(255-vga_y)};
-        end
-
-        2, 3: begin
-            vga_raw = {8'(255-vga_y), 8'h00, 8'(255-vga_y), 8'h0};
-        end
+        case (PATTERN)
+            "RGGB": begin
+                if (vga_y[0] == 0)
+                    vga_raw = {horibar_g, horibar_r, horibar_g, horibar_r};
+                else
+                    vga_raw = {horibar_b, horibar_g, horibar_b, horibar_g};
+            end
+            "GRBG": begin
+                if (vga_y[0] == 0)
+                    vga_raw = {horibar_r, horibar_g, horibar_r, horibar_g};
+                else
+                    vga_raw = {horibar_g, horibar_b, horibar_g, horibar_b};
+            end
+            "GBRG": begin
+                if (vga_y[0] == 0)
+                    vga_raw = {horibar_b, horibar_g, horibar_b, horibar_g};
+                else
+                    vga_raw = {horibar_g, horibar_r, horibar_g, horibar_r};
+            end
+            "BGGR": begin
+                if (vga_y[0] == 0)
+                    vga_raw = {horibar_g, horibar_b, horibar_g, horibar_b};
+                else
+                    vga_raw = {horibar_r, horibar_g, horibar_r, horibar_g};
+            end
+            default: begin
+                $error("Unexpected Bayer filter pattern\n");
+                $stop;
+            end
         endcase
     end
 
     1: begin
-        case ({vga_y[0], vga_x[0]})
-        // all blue
-        0, 1: begin
-            vga_raw = {8'(255-vga_y), 8'h00, 8'(255-vga_y), 8'h0};
-        end
-
-        2, 3: begin
-            vga_raw = '0;
-        end
+        case (PATTERN)
+            "RGGB": begin
+                if (vga_y[0] == 0)
+                    vga_raw = {vertbar_g, vertbar_r, vertbar_g, vertbar_r};
+                else
+                    vga_raw = {vertbar_b, vertbar_g, vertbar_b, vertbar_g};
+            end
+            "GRBG": begin
+                if (vga_y[0] == 0)
+                    vga_raw = {vertbar_r, vertbar_g, vertbar_r, vertbar_g};
+                else
+                    vga_raw = {vertbar_g, vertbar_b, vertbar_g, vertbar_b};
+            end
+            "GBRG": begin
+                if (vga_y[0] == 0)
+                    vga_raw = {vertbar_b, vertbar_g, vertbar_b, vertbar_g};
+                else
+                    vga_raw = {vertbar_g, vertbar_r, vertbar_g, vertbar_r};
+            end
+            "BGGR": begin
+                if (vga_y[0] == 0)
+                    vga_raw = {vertbar_g, vertbar_b, vertbar_g, vertbar_b};
+                else
+                    vga_raw = {vertbar_r, vertbar_g, vertbar_r, vertbar_g};
+            end
+            default: begin
+                $error("Unexpected Bayer filter pattern\n");
+                $stop;
+            end
         endcase
-    end
-
-    2: begin
-        case ({vga_y[0], vga_x[0]})
-        // all red
-        0, 1: begin
-            vga_raw = '0;
-        end
-
-        2, 3: begin
-            vga_raw = {8'h0, 8'(255-vga_y), 8'h00, 8'(255-vga_y)};
-        end
-        endcase
-    end
-
-    3: begin
-        if (vga_y[0] == 0)
-            vga_raw = {horibar_b, horibar_g, horibar_b, horibar_g};
-        else
-            vga_raw = {horibar_g, horibar_r, horibar_g, horibar_r};
-    end
-
-    4: begin
-        if (vga_y[0] == 0)
-            vga_raw = {vertbar_b, vertbar_g, vertbar_b, vertbar_g};
-        else
-            vga_raw = {vertbar_g, vertbar_r, vertbar_g, vertbar_r};
     end
 
     default: $finish();
@@ -262,7 +273,7 @@ raw2rgb #(
     .MAX_VRES(MAX_VRES),
     .MAX_HTOTAL(4400),
     .MAX_VTOTAL(2250),
-    .PATTERN("GBRG")
+    .PATTERN(PATTERN)
 ) u_raw2rgb (
     .i_pclk(clk),
     .i_rstn(rstn),

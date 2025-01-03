@@ -25,7 +25,6 @@ module raw2rgb #(
     parameter MAX_VRES = 1080,
     parameter MAX_HTOTAL = 2200,  // including HRES(H_ACTIVE), HSA, HBP and HFP. 
     parameter MAX_VTOTAL = 1125,
-    // parameter PATTERN = "GBRG",  // bayer filter pattern. RGGB, GRBG, GBRG, BGGR
     parameter PATTERN = "GBRG",  // bayer filter pattern. RGGB, GRBG, GBRG, BGGR
     localparam Y_ACT_WID = $clog2(MAX_VRES),
     localparam X_ACT_WID = $clog2(MAX_HRES)
@@ -53,17 +52,16 @@ module raw2rgb #(
 );
 
 /**
- *  RGGB (from top left corner): 
- *    0 1
- *  0 R G 
- *  1 G B
+ *  GBRG (from top left corner): 
+ *      0 1 2 3
+ *      - - - -
+ *  0 | G B G B 
+ *  1 | R G R G
+ *  2 | G B G B
+ *  3 | R G R G
  * 
- *  GBRG
- *    0 1 2 3
- *  0 G B G B 
- *  1 R G R G
- *  2 G B G B
- *  3 R G R G
+ *  where G is the first data (LSB) in the i_raw signal
+ *  the same for other patterns (RGGB, GRBG, BGGR)
  */
 
 localparam WR_AW = $clog2(MAX_HRES / IN_PCNT);   // each address may contain multiple pixels
@@ -343,8 +341,30 @@ end
 generate
     for (idx=0 ; idx<OUT_PCNT ; idx=idx+1) begin : debayer
         logic [X_ACT_WID-1:0] x_active_cnt_tmp;
-        always_comb begin
-            x_active_cnt_tmp = x_active_cnt + idx;
+        logic [Y_ACT_WID-1:0] y_active_cnt_tmp;
+        if (PATTERN == "RGGB") begin
+            // shift y by 1 compared to the default GBRG
+            always_comb begin
+                x_active_cnt_tmp = x_active_cnt + idx;
+                y_active_cnt_tmp = y_active_cnt + 1;
+            end
+        end else if (PATTERN == "GRBG") begin
+            // shift y and x by 1 compared to the default GBRG
+            always_comb begin
+                x_active_cnt_tmp = x_active_cnt + idx + 1;
+                y_active_cnt_tmp = y_active_cnt + 1;
+            end
+        end else if (PATTERN == "BGGR") begin
+            // shift x by 1 compared to the default GBRG
+            always_comb begin
+                x_active_cnt_tmp = x_active_cnt + idx + 1;
+                y_active_cnt_tmp = y_active_cnt + 0;
+            end
+        end else begin  // PATTERN == "GBRG" by default
+            always_comb begin
+                x_active_cnt_tmp = x_active_cnt + idx;
+                y_active_cnt_tmp = y_active_cnt + 0;
+            end
         end
 
         always_ff @(posedge i_pclk or negedge i_rstn) begin
@@ -353,7 +373,7 @@ generate
                 r_b[idx] <= '0;
                 r_r[idx] <= '0;
             end else begin
-                case ({y_active_cnt[0], x_active_cnt_tmp[0]})
+                case ({y_active_cnt_tmp[0], x_active_cnt_tmp[0]})
                 0: begin
                     r_g[idx] <= (w_raw_line1_cat[idx*PW +: PW] + w_raw_line1_cat[(idx+2)*PW +: PW] + 
                                 w_raw_line2_cat[(idx+1)*PW +: PW] + 
