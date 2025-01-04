@@ -11,6 +11,13 @@ module raw2rgb_tb #(
     input                      clk,
     input                      rstn,
 
+    output [            11:0]     ref_x,
+    output [            11:0]     ref_y,
+    output                        ref_valid,
+    output                        ref_de,
+    output                        ref_hs,
+    output                        ref_vs,
+    output [PW * IN_PCNT-1:0]     ref_raw,
 
     output                        o_vsync,
     output                        o_hsync,
@@ -46,6 +53,14 @@ reg [PW-1:0] vertbar_b;
 
 reg r_vsync = 0;
 int frame_cnt = 0;
+
+assign ref_x = vga_x; 
+assign ref_y = vga_y; 
+assign ref_valid = vga_valid; 
+assign ref_de = vga_de; 
+assign ref_hs = vga_hs; 
+assign ref_vs = vga_vs; 
+assign ref_raw = vga_raw; 
 
 always @(posedge clk) begin
     if (!rstn) begin

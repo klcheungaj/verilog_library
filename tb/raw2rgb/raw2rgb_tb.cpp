@@ -21,6 +21,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 using namespace std;
+using namespace cv;
 
 SC_MODULE(top_tb) {
     sc_clock            clk;
@@ -32,8 +33,16 @@ SC_MODULE(top_tb) {
     sc_signal<bool>     o_valid;
     sc_signal<uint32_t> o_x_cnt;
     sc_signal<uint32_t> o_y_cnt;
-    sc_signal<uint64_t>    o_rgb;
+    sc_signal<uint64_t> o_rgb;
     
+    sc_signal<bool>     ref_valid;
+    sc_signal<bool>     ref_de;
+    sc_signal<bool>     ref_hs;
+    sc_signal<bool>     ref_vs;
+    sc_signal<uint32_t> ref_x;
+    sc_signal<uint32_t> ref_y;
+    sc_signal<uint32_t> ref_raw;
+
     enum SimState{
         SIM_STATE_IDLE,
         SIM_STATE_RUN,
@@ -41,20 +50,32 @@ SC_MODULE(top_tb) {
         SIM_STATE_END_WITH_ERR
     };
 
-    void savePicture(int cnt) {
-        using namespace cv;
-        char buf[20];
-        int len = snprintf(buf, 20, "logs/debayer%d.bmp", cnt);
 
-        Mat m = Mat(270, 480, CV_8UC3);
-        cout << "memory size: " << memory.size() << endl;
+    void debayer2rgb(vector<uint8_t> &mem, int cnt) {
+        char buf[30];
+        int len = snprintf(buf, 30, "logs/ref_debayer%d.bmp", cnt);
+
+        Mat m = Mat(270, 480, CV_8UC1, mem.data());
+        cout << "memory size: " << mem.size() << endl;
         cout << "Mat size: " << m.size() << endl;
-        m.data = memory.data();
-        cv::cvtColor(m, m, cv::COLOR_BGR2RGB);
-        // memcpy(m.data, memory.data(), 480*270*3);
-        cout << memory.data() << endl;
+        cvtColor(m, m_debayer, COLOR_BayerGBRG2BGR);
+        cout << "Mat2 size: " << m_debayer.size() << endl;
+        cout << "Mat2 size in byte: " << m_debayer.total() * m_debayer.elemSize() << endl;
+        // imshow("debayer picture", m);
+        imwrite(buf, m_debayer);
+    }
+
+    Mat savePicture(vector<uint8_t> &mem, int cnt) {
+        char buf[30];
+        int len = snprintf(buf, 30, "logs/debayer%d.bmp", cnt);
+
+        Mat m = Mat(270, 480, CV_8UC3, mem.data());
+        cout << "memory size: " << mem.size() << endl;
+        cout << "Mat size: " << m.size() << endl;
+        cvtColor(m, m, COLOR_RGB2BGR);
         // imshow("debayer picture", m);
         imwrite(buf, m);
+        return m;
     }
 
 private:
@@ -66,10 +87,32 @@ private:
         }
 
     vector<uint8_t> memory;
+    vector<uint8_t> ref_memory;
     SimState state;
+    Mat m_debayer;
 
     uint64_t getAllOnes(uint64_t numOfOne) {
         return ((1ULL << numOfOne) - 1ULL);
+    }
+
+    bool checkImagesEqual(Mat m1, Mat m2, int cnt) {
+        int total_size = m1.total() * m1.elemSize();
+        cout << "total_size: " << total_size << endl;
+        uint64_t diff = 0;
+        uint64_t diff_cnt = 0;
+        Mat m_d = m1;
+        for (int i=0 ; i<total_size ; i++) {
+            m_d.data[i] = abs(m1.data[i] - m2.data[i]);
+            diff += m_d.data[i];
+            if (m1.data[i] != m2.data[i])
+                ++diff_cnt;
+        }
+        char buf[30];
+        int len = snprintf(buf, 30, "logs/difference%d.bmp", cnt);
+        imwrite(buf, m_d);
+        cout << "accumulated difference of two images: " << diff << endl;
+        cout << "total count of different subpixel: " << diff_cnt << endl;
+        return diff < 300000;   // just use a value that doesn't trigger an error 
     }
 
     void sequencer() {
@@ -105,7 +148,15 @@ private:
             if (r1_vsync && !o_vsync) {
                 ++frame_cnt;
                 cout << "frame count: " << frame_cnt << endl;
-                savePicture(frame_cnt);
+                Mat m = savePicture(memory, frame_cnt);
+                if (checkImagesEqual(m, m_debayer, frame_cnt)) {
+                    cout << "SUCCESS: two images are equal" << endl;
+                } 
+                else {
+                    cout << "ERROR: two images are different" << endl;
+                    state = SIM_STATE_END_WITH_ERR;
+                }
+
                 memset(memory.data(), 0, 270*480*3);
                 x_cnt = 0;
                 y_cnt = 0;
@@ -128,6 +179,45 @@ private:
 
             r1_vsync = o_vsync;
             r1_de = o_de;
+        }
+    }
+
+    void ref_monitor() {
+        wait(rstn.posedge_event());
+        int frame_cnt = 0;
+        int y_cnt = 0;
+        int x_cnt = 0;
+        int64_t clk_cnt = 0;
+        bool r1_vsync = ref_vs;
+        bool r1_de = ref_de;
+
+        while (true) {      // forever begin
+            wait(clk.posedge_event()); // @(posedge clk)
+            ++clk_cnt;
+
+            if (r1_vsync && !ref_vs) {
+                ++frame_cnt;
+                cout << "ref frame count: " << frame_cnt << endl;
+                debayer2rgb(ref_memory, frame_cnt);
+                memset(ref_memory.data(), 0, 270*480);
+                x_cnt = 0;
+                y_cnt = 0;
+            }
+
+            if (r1_de && !ref_de) {
+                ++y_cnt;
+                x_cnt = 0;
+            }
+
+            if (ref_valid && x_cnt < 120) {
+                memcpy(ref_memory.data() + (y_cnt)*(480) + x_cnt*(4), &ref_raw.read(), 4);
+                cout << "ref y count: " << y_cnt << ". ";
+                cout << "ref x count: " << x_cnt <<endl;
+                x_cnt += 1;
+            }
+
+            r1_vsync = ref_vs;
+            r1_de = ref_de;
         }
     }
 
@@ -156,6 +246,7 @@ public:
         SC_HAS_PROCESS(top_tb);
         SC_THREAD(sequencer);
         SC_THREAD(monitor);
+        SC_THREAD(ref_monitor);
         dut->clk(clk);
         dut->rstn(rstn);
         dut->o_vsync(o_vsync);
@@ -165,8 +256,17 @@ public:
         dut->o_x_cnt(o_x_cnt);
         dut->o_y_cnt(o_y_cnt);
         dut->o_rgb(o_rgb);
+        dut->ref_valid(ref_valid);
+        dut->ref_de(ref_de);
+        dut->ref_hs(ref_hs);
+        dut->ref_vs(ref_vs);
+        dut->ref_x(ref_x);
+        dut->ref_y(ref_y);
+        dut->ref_raw(ref_raw);
+
         rstn = false;
         memory.resize(480*270*3);
+        ref_memory.resize(480*270);
 
         state = SIM_STATE_IDLE;
     }
