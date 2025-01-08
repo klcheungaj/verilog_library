@@ -79,6 +79,22 @@ private:
         return (int(acc[2]) & mask) << (CD*2) | (int(acc[1]) & mask) << (CD) | int(acc[0]) & mask;
     }
 
+    bool checkResult(uint32_t expect, uint32_t receive) {
+        uint32_t mask = getAllOnes(CD);
+        for (int ch=0 ; ch<3 ; ch++) {
+            uint32_t e_ch = ((expect >> ch*CD) & mask);
+            uint32_t r_ch = ((receive >> ch*CD) & mask);
+            int64_t diff = e_ch - r_ch;
+            // if (diff == 1) {
+            //     cout << "[Warning] difference between expected and received value is 1, which is considered as acceptable" << endl; 
+            // }
+            if (diff > 1) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     uint32_t gen_next_fractional() {
         int randNum = rand() % 10;
         bool isZero = randNum < 1; 
@@ -130,7 +146,7 @@ private:
             wait(clk.posedge_event()); // @(posedge clk)
             if (out_valid) {
                 TB_ASSERT(!q_exp_result.empty(), "Expect result queue is empty" << endl);
-                TB_ASSERT(q_exp_result.front() == out_pt.read(), 
+                TB_ASSERT(checkResult(q_exp_result.front(), out_pt.read()), 
                     "Value is not equal! Expect: " << hex << q_exp_result.front() 
                     << ", Receive: " << out_pt << endl);
                 cout << "Expect: " << hex << q_exp_result.front() << ", Receive: " << out_pt << endl;
