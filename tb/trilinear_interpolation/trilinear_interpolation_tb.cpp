@@ -60,7 +60,7 @@ private:
     uint32_t trilinear_interp (uint32_t pt[8], float frac_r, float frac_g, float frac_b) {
         float acc[3] = {0};
         uint32_t mask = getAllOnes(CD);
-        cout << "frac_r: " << frac_r << ". frac_g: " << frac_g << ". frac_b: " << frac_b << endl; 
+        // cout << "frac_r: " << frac_r << ". frac_g: " << frac_g << ". frac_b: " << frac_b << endl; 
         for (int k=0 ; k<2 ; k++) {
             for (int j=0 ; j<2 ; j++) {
                 for (int i=0 ; i<2 ; i++) {
@@ -75,7 +75,7 @@ private:
                 }
             }
         }
-        cout << "acc of red is: " << acc[0] << endl;
+        // cout << "acc of red is: " << acc[0] << endl;
         return (int(acc[2]) & mask) << (CD*2) | (int(acc[1]) & mask) << (CD) | int(acc[0]) & mask;
     }
 
@@ -131,7 +131,6 @@ private:
                     uint32_t exp_result = trilinear_interp(tmp_pt_nbr, tmp_frac_r/256.0f, 
                         tmp_frac_g/256.0f, tmp_frac_b/256.0f); 
                     q_exp_result.push(exp_result);
-                    cout << "push " << hex << exp_result << endl;
                 } else {
                     in_valid = 0;
                 }
@@ -149,8 +148,6 @@ private:
                 TB_ASSERT(checkResult(q_exp_result.front(), out_pt.read()), 
                     "Value is not equal! Expect: " << hex << q_exp_result.front() 
                     << ", Receive: " << out_pt << endl);
-                cout << "Expect: " << hex << q_exp_result.front() << ", Receive: " << out_pt << endl;
-                cout << "pop " << hex << q_exp_result.front() << endl;
                 q_exp_result.pop();
             }
         }
