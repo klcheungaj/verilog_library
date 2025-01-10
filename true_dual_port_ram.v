@@ -19,7 +19,7 @@ module true_dual_port_ram
     parameter WRITE_MODE_2  = "READ_FIRST",
     parameter OUTPUT_REG_1  = "FALSE",
     parameter OUTPUT_REG_2  = "FALSE",
-    parameter RAM_INIT_FILE = "ram_init_file.mem",
+    parameter RAM_INIT_FILE = "",
     parameter RAM_INIT_RADIX= "HEX"
 )
 (
