@@ -9,6 +9,8 @@
 #include <sys/stat.h>  // mkdir
 #include <cmath>  // mkdir
 #include <fstream>
+#include <sstream>
+#include <filesystem>
 
 #include "Vcolor_mapping_3dlut.h"
 #include "verilated.h"
@@ -16,11 +18,22 @@
 #include <verilated_fst_sc.h>
 #include <systemc.h>
 
-#define FW 8    //fractional part width
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
 #ifndef CD      //may be defined in makefile
     #define CD 8
 #endif
+#ifndef LUT_CD      //may be defined in makefile
+    #define LUT_CD 8
+#endif
+#ifndef GS      //may be defined in makefile
+    #define GS 33
+#endif
 using namespace std;
+using namespace cv;
+namespace fs = std::filesystem;
 
 SC_MODULE(top_tb) {
     sc_clock p_clk;
@@ -29,15 +42,15 @@ SC_MODULE(top_tb) {
     sc_signal<bool> i_vs;
     sc_signal<bool> i_de;
     sc_signal<bool> i_valid;
+    sc_signal<uint64_t> i_data;
     sc_signal<bool> o_hs;
     sc_signal<bool> o_vs;
     sc_signal<bool> o_de;
     sc_signal<bool> o_valid;
+    sc_signal<uint64_t> o_data;
     sc_signal<bool> i_cfg_valid;
     sc_signal<bool> i_cfg_last;
     sc_signal<uint32_t> i_cfg_data;
-    sc_signal<uint64_t> i_data;
-    sc_signal<uint64_t> o_data;
 
     enum SimState{
         SIM_STATE_IDLE,
@@ -49,8 +62,12 @@ SC_MODULE(top_tb) {
 
 private:
     SimState state;
-    queue<uint32_t> q_exp_result;
-    uint32_t tmp_pt_nbr[8];
+    Mat image;
+    Mat image_out;
+    string imagedir;
+    string cubedir;
+    string image_name;
+    string lut_name;
 
     #define TB_ASSERT(condition, message) \
         if (!(condition)) { \
@@ -63,110 +80,135 @@ private:
         return ((1ULL << numOfOne) - 1ULL);
     }
 
-    uint32_t trilinear_interp (uint32_t pt[8], float frac_r, float frac_g, float frac_b) {
-        float acc[3] = {0};
-        uint32_t mask = getAllOnes(CD);
-        // cout << "frac_r: " << frac_r << ". frac_g: " << frac_g << ". frac_b: " << frac_b << endl; 
-        for (int k=0 ; k<2 ; k++) {
-            for (int j=0 ; j<2 ; j++) {
-                for (int i=0 ; i<2 ; i++) {
-                    // cout << "red data of index " << k*4 + j*2 + i 
-                    //         << " is: " << ((pt[k*4 + j*2 + i] >> 0*8) & 0xFF) << endl; 
-                    for (int ch=0 ; ch<3 ; ch++) {
-                        acc[ch] += ((i*frac_r) + (1-i)*(1-frac_r) ) *
-                                    ((j*frac_g) + (1-j)*(1-frac_g) ) *
-                                    ((k*frac_b) + (1-k)*(1-frac_b) ) *
-                                    ((pt[k*4 + j*2 + i] >> ch*CD) & mask);
-                    }
-                }
+    void load_cube(string path, vector<uint64_t> &init_ram) {
+        ifstream file(path);
+        string line; 
+        while(file >> line) {
+            std::stringstream ss(line);
+            std::vector<int> output;
+            string val_str;
+            uint64_t val = 0;
+            while(getline(ss, val_str, ',')) {
+                val = (val << (LUT_CD)) | atoi(val_str.c_str());
+            }
+            init_ram.push_back(val);
+        }
+    }
+
+    void load_image(string path) {
+        image_name = fs::path(path).stem();
+        image = imread(path);
+        cvtColor(image, image, COLOR_BGR2RGB);
+        cout << "loading of image, " << fs::path(path).stem() << ", is done" << endl;
+        cout << "image Mat size: " << image.size() << endl;
+        cout << "image Mat data length (in byte): " << image.total() * image.elemSize() << endl;
+        image_out = Mat::zeros(image.size(), image.type());
+    }
+
+    void task_init_ram(string filepath) {
+        vector<uint64_t> init_ram;
+        load_cube(filepath, init_ram);
+        for (int i=0 ; i<init_ram.size() ; ++i) {
+            wait(p_clk.negedge_event());
+            i_cfg_valid = 1;
+            i_cfg_last = i == init_ram.size() - 1 ? 1 : 0;
+            i_cfg_data = init_ram[i];
+        }
+        wait(p_clk.negedge_event());
+        i_cfg_valid = 0;
+        i_cfg_last = 0;
+    }
+
+    void task_send_image() {
+        int cnt = 0;
+        int height = image.size().height;
+        int width = image.size().width;
+        for (int y=0 ; y<height+5 ; ++y) {
+            bool vvalid = y > 0;
+            bool vporch = vvalid && (y < 3 || y >= height+3);
+            for (int x=0 ; x<width+30 ; x+=2) {
+                wait(p_clk.posedge_event()); // @(posedge p_clk)
+                bool hvalid = x > 10;
+                bool hporch = hvalid && (x < 20 || x >= width+20);
+                bool data_valid = vvalid && !vporch && hvalid && !hporch; 
+                i_vs = vvalid;
+                i_hs = hvalid;
+                i_de = data_valid;
+                i_valid = data_valid;
+                uint64_t temp = 0;
+                memcpy(&temp                  , image.data + cnt*3, 3);
+                memcpy(((uint8_t*)(&temp)) + 3, image.data + (cnt+1)*3, 3);
+                i_data = temp;
+                if (data_valid) cnt += 2;
             }
         }
-        // cout << "acc of red is: " << acc[0] << endl;
-        return (int(acc[2]) & mask) << (CD*2) | (int(acc[1]) & mask) << (CD) | int(acc[0]) & mask;
-    }
-
-    bool checkResult(uint32_t expect, uint32_t receive) {
-        uint32_t mask = getAllOnes(CD);
-        for (int ch=0 ; ch<3 ; ch++) {
-            uint32_t e_ch = ((expect >> ch*CD) & mask);
-            uint32_t r_ch = ((receive >> ch*CD) & mask);
-            int64_t diff = e_ch - r_ch;
-            // if (diff == 1) {
-            //     cout << "[Warning] difference between expected and received value is 1, which is considered as acceptable" << endl; 
-            // }
-            if (diff > 1) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    uint32_t gen_next_fractional() {
-        int randNum = rand() % 10;
-        bool isZero = randNum < 1; 
-        bool isOne = randNum == 9;
-        if (isZero) return 0;
-        else if (isOne) return getAllOnes(FW);
-        else {
-            return rand() % (1 << FW);
-        }
-    }
-
-    void task_ram_init() {
-        
+        wait(p_clk.posedge_event()); // @(posedge p_clk)
+        i_vs = 0;
+        i_hs = 0;
+        i_de = 0;
+        i_valid = 0;
     }
 
     void sequencer() {
-        while (true) {//forever begin
-            wait(p_clk.posedge_event()); // @(posedge p_clk)
-            if (sc_time_stamp() < sc_time(100, SC_NS)) {
-                p_rstn = false;  // Assert reset
-                i_hs = 0;
-                i_vs = 0;
-                i_de = 0;
-                i_valid = 0;
-                i_cfg_valid = 0;
-                i_cfg_last = 0;
-                i_cfg_data = 0;
-                i_data = 0;
-            } else if (sc_time_stamp() < sc_time(120, SC_NS)) {
-                p_rstn = true;    // deassert reset
-            } else {
-                bool isValid = (rand() % 4) < 3;
-                uint32_t tmp_frac_r = gen_next_fractional();
-                uint32_t tmp_frac_g = gen_next_fractional();
-                uint32_t tmp_frac_b = gen_next_fractional();
-                frac_r = tmp_frac_r;
-                frac_g = tmp_frac_g;
-                frac_b = tmp_frac_b;
-                if (isValid) {
-                    in_valid = 1;
-                    for (int i=0 ; i<8 ; ++i) {
-                        tmp_pt_nbr[i] = (rand() % (1 << CD)) << (CD*2) | (rand() % (1 << CD)) << (CD) | (rand() % (1 << CD));
-                        pt_nbr[i] = tmp_pt_nbr[i];
-                    }
-                    uint32_t exp_result = trilinear_interp(tmp_pt_nbr, tmp_frac_r/256.0f, 
-                        tmp_frac_g/256.0f, tmp_frac_b/256.0f); 
-                    q_exp_result.push(exp_result);
-                } else {
-                    in_valid = 0;
-                }
+        p_rstn = false;  // Assert reset
+        i_hs = 0;
+        i_vs = 0;
+        i_de = 0;
+        i_valid = 0;
+        i_cfg_valid = 0;
+        i_cfg_last = 0;
+        i_cfg_data = 0;
+        i_data = 0;
+        wait(100, SC_NS);
+        p_rstn = true;    // deassert reset
+        wait(20, SC_NS);
+        
+        for (const auto & image : fs::directory_iterator(imagedir)) {
+            std::cout << image.path() << std::endl;
+            load_image(image.path()); 
+            for (const auto & cube : fs::directory_iterator(cubedir)) {
+                std::cout << cube.path() << std::endl;
+                string file = cube.path();
+                lut_name = fs::path(file).stem(); 
+                task_init_ram(file);
+                cout << "Loading of the 3D LUT, " << file << ", is done" << endl;
+                wait(10, SC_NS);
+                task_send_image();
+                wait(50, SC_NS);
             }
         }
+        state = SIM_STATE_END_NO_ERR;
     }
     
     void monitor() {
         wait(p_rstn.posedge_event());
-
+        int cnt = 0;
+        int last_vs = 0;
+        int image_cnt = 0;
         while (true) {      // forever begin
             wait(p_clk.posedge_event()); // @(posedge p_clk)
-            if (out_valid) {
-                TB_ASSERT(!q_exp_result.empty(), "Expect result queue is empty" << endl);
-                TB_ASSERT(checkResult(q_exp_result.front(), out_pt.read()), 
-                    "Value is not equal! Expect: " << hex << q_exp_result.front() 
-                    << ", Receive: " << out_pt << endl);
-                q_exp_result.pop();
+            if (o_valid.read()) {
+                uint64_t temp = o_data.read();
+                memcpy(image_out.data + cnt*3, &temp, 3);
+                memcpy(image_out.data + (cnt+1)*3, ((uint8_t*)(&temp)) + 3, 3);
+                // cout << "pixel count: " << dec << cnt << ". receive pixel: " << hex << o_data.read() << endl;
+                cnt += 2;
             }
+
+            if (last_vs && !o_vs) {
+                if (cnt != image_out.total()) {
+                    cout << "[ERROR] number of received pixels mismatch" << endl;
+                } else {
+                    cout << "all pixels are received" << endl;
+                }
+                string outpath = "images/" + image_name + "_" + lut_name + ".png";
+                cout << "saving output image to path: " << outpath << endl;
+                imwrite(outpath, image_out);
+                cnt = 0;
+                ++image_cnt;
+
+            }
+            last_vs = o_vs;
         }
     }
 
@@ -185,14 +227,20 @@ public:
     
     top_tb (
         const sc_module_name name,
-        std::unique_ptr<Vcolor_mapping_3dlut> &dut
+        std::unique_ptr<Vcolor_mapping_3dlut> &dut,
+        string imagedir,
+        string cubedir
     ) 
     :sc_module(name)
-    ,p_clk("p_clk", 5, SC_NS, 0.5, 3, SC_NS, true)
+    ,p_clk("p_clk", 1, SC_NS, 0.5, 3, SC_NS, true)
+    ,imagedir(imagedir)
+    ,cubedir(cubedir)
+    ,lut_name("none")
     {    
         SC_HAS_PROCESS(top_tb);
         SC_THREAD(sequencer);
         SC_THREAD(monitor);
+        dut->p_clk(p_clk);
         dut->p_rstn(p_rstn);
         dut->i_hs(i_hs);
         dut->i_vs(i_vs);
@@ -228,13 +276,28 @@ int sc_main(int argc, char* argv[]) {
     Verilated::commandArgs(argc, argv);
     ios::sync_with_stdio();
     Verilated::mkdir("logs");
+    Verilated::mkdir("images");
     ofstream tb_log("logs/tb_log.txt", std::ofstream::trunc);
     streambuf *coutbuf = cout.rdbuf(); //save old buf
     cout.rdbuf(tb_log.rdbuf()); //redirect std::cout to out.txt!
 
+    const char* arg = nullptr;
+    string cubedir = "";
+    string imagedir = "";
+    arg = Verilated::commandArgsPlusMatch("cubedir");
+    if (arg && string(arg).find("+cubedir+") != std::string::npos) {
+        cubedir = string(arg).replace(0, string("+cubedir+").size(), "");
+        cout << "directory cube files " << cubedir << endl;
+    }
+    arg = Verilated::commandArgsPlusMatch("imagedir");
+    if (arg && string(arg).find("+imagedir+") != std::string::npos) {
+        imagedir = string(arg).replace(0, string("+imagedir+").size(), "");
+        cout << "directory input images files " << imagedir << endl;
+    }
+
     /*  instantiate dut and testbench top   */
     std::unique_ptr<Vcolor_mapping_3dlut> dut(new Vcolor_mapping_3dlut("dut"));
-    std::unique_ptr<top_tb> tb(new top_tb("top_tb", dut));
+    std::unique_ptr<top_tb> tb(new top_tb("top_tb", dut, imagedir, cubedir));
     sc_core::sc_start(sc_core::SC_ZERO_TIME);
 
     const char* flag = nullptr;

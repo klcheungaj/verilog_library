@@ -1,10 +1,16 @@
 
 .PHONY: gen build run view clean
 
+CD = 8
+GS = 33
+LUT_CD = 8
+cubedir = ../cubes/33
+imagedir = ../images
+
 ifeq ($(trace),on)
-CMAKE_VAR += -DTRACE_FLAG=true
+CMAKE_VAR += -DTRACE_FLAG=true -DCD=$(CD) -DGS=$(GS) -DLUT_CD=$(LUT_CD)
 else
-CMAKE_VAR += -DTRACE_FLAG=false
+CMAKE_VAR += -DTRACE_FLAG=false -DCD=$(CD) -DGS=$(GS) -DLUT_CD=$(LUT_CD)
 endif 
 
 gen:
@@ -15,7 +21,7 @@ build: gen
 
 run: CMAKE_VAR += -DTRACE_FLAG=false
 run: build
-	cd ./build ; ./Vout
+	cd ./build ; ./Vout +imagedir+$(imagedir) +cubedir+$(cubedir)
 
 run_trace: CMAKE_VAR += -DTRACE_FLAG=true 
 run_trace: build
