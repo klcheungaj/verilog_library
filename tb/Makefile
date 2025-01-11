@@ -11,8 +11,9 @@ qrun:
 	vsim -batch -64 -lib work -do "../wave.do" -do "assertion fail -r / -action break; run -all; quit" -statslog work/stats_log $(TOP) -appendlog -l qrun.log -csession=incr;
 	
 iverilog:
-	rm -rf build
-	mkdir -p build
-	iverilog -g2012 -o a.out ../$(TOP).sv
-	vvp a.out
-	gtkwave config.gtkw  -f wave.vcd
+	rm -rf build; \
+	mkdir -p build; \
+	cd build; \
+	iverilog -g2012 -o a.out -I ../../ ../$(TOP).sv; \
+	vvp a.out; \
+	gtkwave config.gtkw  -f wave.vcd;

@@ -1,4 +1,8 @@
 
+`timescale 1ns/100ps
+
+`include "axis_align.sv"
+
 module axis_align_tb ();
 
 `define SETUP #0.5
