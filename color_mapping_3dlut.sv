@@ -6,7 +6,7 @@
  */
 module color_mapping_3dlut #(
     parameter  CD = 8,   // color depth
-    parameter  GS = 33,  // Grid Size, either 17, 33 or 65
+    parameter  GS = 33,  // Grid Size, either 16, 17, 32, 33, 64 or 65
     parameter  LUT_CD = 8, // color deptth of 3D LUT, typically 8-bit to 16-bit 
     localparam IN_PCNT = 2 // number of input pixel per cycle
 ) (

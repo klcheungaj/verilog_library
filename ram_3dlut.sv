@@ -2,7 +2,7 @@
 `define Q_DLY #0.5
 
 module ram_3dlut #(
-    parameter GS = 33,  // Grid Size, either 17, 33 or 65
+    parameter GS = 33,  // Grid Size, either 16, 17, 32, 33, 64 or 65
     parameter LUT_CD = 10,    // color depth of LUT. e.g. 8-bit
     localparam IDX_BIT = $clog2(GS)
 ) (
@@ -26,26 +26,29 @@ module ram_3dlut #(
     input                 i_cfg_last
 );
 
-localparam GSM1W = $clog2(GS-1);    // bit width of (Grid size minus 1)
-
+localparam GSM1W = $clog2(GS - 1);    // bit width of (Grid size minus 1)
+localparam ISALIGN = 2**$clog2(GS) == GS;
+localparam I_IDX_BIT = ISALIGN ? IDX_BIT + 1 : IDX_BIT;
+localparam UNALIGN_MAX = 1 << (I_IDX_BIT - 1); 
 initial begin
-    assert(2**(GSM1W) == GS-1)
+    assert(2**(GSM1W) == GS - 1 || ISALIGN)
     else
-        $error("Grid size minus 1 must be a power of 2\n");
-    assert(GSM1W + 1 == IDX_BIT);
+        $error("Grid size or Grid size - 1 must be a power of 2\n");
+    if (2**(GSM1W) == GS - 1)
+        assert(GSM1W + 1 == I_IDX_BIT);
 end
 // -------------------------------------------------------
 // -- stage 1
 // -------------------------------------------------------
-logic [IDX_BIT-1:0] r1_p0_idx_r;
-logic [IDX_BIT-1:0] r1_p0_idx_g;
-logic [IDX_BIT-1:0] r1_p0_idx_b;
-logic [IDX_BIT-1:0] r1_p1_idx_r;
-logic [IDX_BIT-1:0] r1_p1_idx_g;
-logic [IDX_BIT-1:0] r1_p1_idx_b;
-logic               r1_valid;
-logic [LUT_CD*3-1:0] w_p0_p0_lut_pt[7:0]; // {B[0],G[0],R[0]}. Subpixel with smaller index has smaller value
-logic [LUT_CD*3-1:0] w_p0_p1_lut_pt[7:0];
+logic [I_IDX_BIT-1:0] r1_p0_idx_r;
+logic [I_IDX_BIT-1:0] r1_p0_idx_g;
+logic [I_IDX_BIT-1:0] r1_p0_idx_b;
+logic [I_IDX_BIT-1:0] r1_p1_idx_r;
+logic [I_IDX_BIT-1:0] r1_p1_idx_g;
+logic [I_IDX_BIT-1:0] r1_p1_idx_b;
+logic                 r1_valid;
+logic [LUT_CD*3-1:0]  w_p0_p0_lut_pt[7:0]; // {B[0],G[0],R[0]}. Subpixel with smaller index has smaller value
+logic [LUT_CD*3-1:0]  w_p0_p1_lut_pt[7:0];
 
 // -------------------------------------------------------
 // -- stage 2
@@ -88,21 +91,19 @@ logic [2:0] r_rgbmax;
 logic r_rmax_sel;
 logic r_gmax_sel;
 logic r_bmax_sel;
-logic [IDX_BIT-1:0] cfg_count_3d[2:0];
+logic [I_IDX_BIT-1:0] cfg_count_3d[2:0];
 logic [(GSM1W-1)*3-1:0] cfg_addr_gssub1;
-logic [IDX_BIT*2-2-1-1:0] cfg_addr_rmax;
-logic [IDX_BIT*2-2-1-1:0] cfg_addr_gmax;
-logic [IDX_BIT*2-2-1-1:0] cfg_addr_bmax;
-// logic [IDX_BIT-1:0] cfg_count_1d;
-// logic [2:0] cfg_rgb_max;
-logic [LUT_CD*3-1:0] allmax_value = 0;
+logic [I_IDX_BIT*2-2-1-1:0] cfg_addr_rmax;
+logic [I_IDX_BIT*2-2-1-1:0] cfg_addr_gmax;
+logic [I_IDX_BIT*2-2-1-1:0] cfg_addr_bmax;
+logic [LUT_CD*3-1:0] allmax_value = '0;
 
 cfg_last_valid: assert property (@(posedge clk) i_cfg_last |-> i_cfg_valid);
-cfg_addr_rmax_sel: assert property (@(posedge clk) r_rmax_sel |-> cfg_count_3d[0] == GS - 1);
-cfg_addr_gmax_sel: assert property (@(posedge clk) r_gmax_sel |-> cfg_count_3d[1] == GS - 1);
-cfg_addr_bmax_sel: assert property (@(posedge clk) r_bmax_sel |-> cfg_count_3d[2] == GS - 1);
+cfg_addr_rmax_sel: assert property (@(posedge clk) r_rmax_sel |-> cfg_count_3d[0] == UNALIGN_MAX);
+cfg_addr_gmax_sel: assert property (@(posedge clk) r_gmax_sel |-> cfg_count_3d[1] == UNALIGN_MAX);
+cfg_addr_bmax_sel: assert property (@(posedge clk) r_bmax_sel |-> cfg_count_3d[2] == UNALIGN_MAX);
 cfg_addr_gssub1_sel: assert property (@(posedge clk) r_gssub1_sel |-> 
-    (cfg_count_3d[0] != GS - 1 && cfg_count_3d[1] != GS - 1 && cfg_count_3d[2] != GS - 1));
+    (cfg_count_3d[0] != UNALIGN_MAX && cfg_count_3d[1] != UNALIGN_MAX && cfg_count_3d[2] != UNALIGN_MAX));
 cfg_exclusive_sel: assert property (@(posedge clk) r_gssub1_sel + r_rmax_sel + r_gmax_sel + r_bmax_sel <= 1)
     else $display("[ERROR] Assertion Failed. r_gssub1_sel: %d, r_rmax_sel: %d, r_gmax_sel: %d, r_bmax_sel: %d ",
                     r_gssub1_sel, r_rmax_sel, r_gmax_sel, r_bmax_sel);
@@ -110,11 +111,12 @@ cfg_exclusive_sel: assert property (@(posedge clk) r_gssub1_sel + r_rmax_sel + r
 always_ff @(posedge clk or negedge rstn) begin
     if (!rstn) begin
         cfg_count_3d <= `Q_DLY '{default:'0};
+        allmax_value <= '0;
     end else begin
         if (i_cfg_last) begin
             cfg_count_3d <= `Q_DLY '{default:'0};
             allmax_value <= `Q_DLY i_cfg_data;
-            assert(cfg_count_3d[0] == GS-1 && cfg_count_3d[1] == GS-1 && cfg_count_3d[2] == GS-1);
+            assert(cfg_count_3d[0] == GS - 1 && cfg_count_3d[1] == GS - 1 && cfg_count_3d[2] == GS - 1);
         end else if (i_cfg_valid) begin
             if (cfg_count_3d[0] == GS - 1) begin
                 cfg_count_3d[0] <= `Q_DLY '0;                
@@ -133,16 +135,19 @@ always_ff @(posedge clk or negedge rstn) begin
 end
 
 always_comb begin
-    r_rgbmax = {cfg_count_3d[2][IDX_BIT-1], cfg_count_3d[1][IDX_BIT-1], cfg_count_3d[0][IDX_BIT-1]};
+    if (ISALIGN)
+        r_rgbmax = '0;
+    else
+        r_rgbmax = {cfg_count_3d[2][I_IDX_BIT-1], cfg_count_3d[1][I_IDX_BIT-1], cfg_count_3d[0][I_IDX_BIT-1]};
     r_rmax_sel = i_cfg_valid && (r_rgbmax == 3'b001 || r_rgbmax == 3'b101);
     r_gmax_sel = i_cfg_valid && (r_rgbmax == 3'b010 || r_rgbmax == 3'b011);
     r_bmax_sel = i_cfg_valid && (r_rgbmax == 3'b100 || r_rgbmax == 3'b110);
     r_gssub1_sel = i_cfg_valid && (r_rgbmax == 3'b000);
 
-    cfg_addr_gssub1 = {cfg_count_3d[2][1 +: IDX_BIT-2], cfg_count_3d[1][1 +: IDX_BIT-2], cfg_count_3d[0][1 +: IDX_BIT-2]};
-    cfg_addr_rmax = {cfg_count_3d[2][1 +: IDX_BIT-1], cfg_count_3d[1][1 +: IDX_BIT-2]};
-    cfg_addr_gmax = {cfg_count_3d[0][1 +: IDX_BIT-1], cfg_count_3d[2][1 +: IDX_BIT-2]};
-    cfg_addr_bmax = {cfg_count_3d[1][1 +: IDX_BIT-1], cfg_count_3d[0][1 +: IDX_BIT-2]};
+    cfg_addr_gssub1 = {cfg_count_3d[2][1 +: I_IDX_BIT-2], cfg_count_3d[1][1 +: I_IDX_BIT-2], cfg_count_3d[0][1 +: I_IDX_BIT-2]};
+    cfg_addr_rmax = {cfg_count_3d[2][1 +: I_IDX_BIT-1], cfg_count_3d[1][1 +: I_IDX_BIT-2]};
+    cfg_addr_gmax = {cfg_count_3d[0][1 +: I_IDX_BIT-1], cfg_count_3d[2][1 +: I_IDX_BIT-2]};
+    cfg_addr_bmax = {cfg_count_3d[1][1 +: I_IDX_BIT-1], cfg_count_3d[0][1 +: I_IDX_BIT-2]};
 end
 
 logic [LUT_CD*3-1:0] w_p0_gssub1_dout[7:0];  // subpixel with smaller index may be larger
@@ -179,12 +184,12 @@ generate
         logic r = idx[0];
         logic g = idx[1];
         logic b = idx[2];
-        logic [IDX_BIT-1:0] comb_p0_idx_r_add;
-        logic [IDX_BIT-1:0] comb_p0_idx_g_add;
-        logic [IDX_BIT-1:0] comb_p0_idx_b_add;
-        logic [IDX_BIT-1:0] comb_p1_idx_r_add;
-        logic [IDX_BIT-1:0] comb_p1_idx_g_add;
-        logic [IDX_BIT-1:0] comb_p1_idx_b_add;
+        logic [I_IDX_BIT-1:0] comb_p0_idx_r_add;
+        logic [I_IDX_BIT-1:0] comb_p0_idx_g_add;
+        logic [I_IDX_BIT-1:0] comb_p0_idx_b_add;
+        logic [I_IDX_BIT-1:0] comb_p1_idx_r_add;
+        logic [I_IDX_BIT-1:0] comb_p1_idx_g_add;
+        logic [I_IDX_BIT-1:0] comb_p1_idx_b_add;
 
         always_comb begin
             comb_p0_idx_r_add = r1_p0_idx_r + r;
@@ -196,37 +201,37 @@ generate
         end
 
         assign w_p0_p0_lut_pt[idx] = 
-            comb_p0_idx_b_add[IDX_BIT-1] == 1 ? 
-                (comb_p0_idx_g_add[IDX_BIT-1] == 1 ? 
-                    (comb_p0_idx_r_add[IDX_BIT-1] == 1 ? allmax_value : w_p0_bluemax_pt[{g, r}]): 
-                    (comb_p0_idx_r_add[IDX_BIT-1] == 1 ? w_p0_redmax_pt[{b, g}] : w_p0_bluemax_pt[{g, r}])): 
-                (comb_p0_idx_g_add[IDX_BIT-1] == 1 ? 
-                    (comb_p0_idx_r_add[IDX_BIT-1] == 1 ? w_p0_greenmax_pt[{r, b}] : w_p0_greenmax_pt[{r, b}]): 
-                    (comb_p0_idx_r_add[IDX_BIT-1] == 1 ? w_p0_redmax_pt[{b, g}] : w_p0_gssub1_pt[idx]));
+            comb_p0_idx_b_add[I_IDX_BIT-1] == 1 ? 
+                (comb_p0_idx_g_add[I_IDX_BIT-1] == 1 ? 
+                    (comb_p0_idx_r_add[I_IDX_BIT-1] == 1 ? allmax_value : w_p0_bluemax_pt[{g, r}]): 
+                    (comb_p0_idx_r_add[I_IDX_BIT-1] == 1 ? w_p0_redmax_pt[{b, g}] : w_p0_bluemax_pt[{g, r}])): 
+                (comb_p0_idx_g_add[I_IDX_BIT-1] == 1 ? 
+                    (comb_p0_idx_r_add[I_IDX_BIT-1] == 1 ? w_p0_greenmax_pt[{r, b}] : w_p0_greenmax_pt[{r, b}]): 
+                    (comb_p0_idx_r_add[I_IDX_BIT-1] == 1 ? w_p0_redmax_pt[{b, g}] : w_p0_gssub1_pt[idx]));
 
         assign w_p0_p1_lut_pt[idx] = 
-            comb_p1_idx_b_add[IDX_BIT-1] == 1 ? 
-                (comb_p1_idx_g_add[IDX_BIT-1] == 1 ? 
-                    (comb_p1_idx_r_add[IDX_BIT-1] == 1 ? allmax_value : w_p1_bluemax_pt[{g, r}]): 
-                    (comb_p1_idx_r_add[IDX_BIT-1] == 1 ? w_p1_redmax_pt[{b, g}] : w_p1_bluemax_pt[{g, r}])): 
-                (comb_p1_idx_g_add[IDX_BIT-1] == 1 ? 
-                    (comb_p1_idx_r_add[IDX_BIT-1] == 1 ? w_p1_greenmax_pt[{r, b}] : w_p1_greenmax_pt[{r, b}]): 
-                    (comb_p1_idx_r_add[IDX_BIT-1] == 1 ? w_p1_redmax_pt[{b, g}] : w_p1_gssub1_pt[idx]));
+            comb_p1_idx_b_add[I_IDX_BIT-1] == 1 ? 
+                (comb_p1_idx_g_add[I_IDX_BIT-1] == 1 ? 
+                    (comb_p1_idx_r_add[I_IDX_BIT-1] == 1 ? allmax_value : w_p1_bluemax_pt[{g, r}]): 
+                    (comb_p1_idx_r_add[I_IDX_BIT-1] == 1 ? w_p1_redmax_pt[{b, g}] : w_p1_bluemax_pt[{g, r}])): 
+                (comb_p1_idx_g_add[I_IDX_BIT-1] == 1 ? 
+                    (comb_p1_idx_r_add[I_IDX_BIT-1] == 1 ? w_p1_greenmax_pt[{r, b}] : w_p1_greenmax_pt[{r, b}]): 
+                    (comb_p1_idx_r_add[I_IDX_BIT-1] == 1 ? w_p1_redmax_pt[{b, g}] : w_p1_gssub1_pt[idx]));
     end
 
     for (idx=0 ; idx<8 ; idx=idx+1) begin : gen_3dram_GSsub1
         logic [2:0] ram_idx = idx;
-        wire [IDX_BIT-2-1:0]  w_p0_r_sel = i_p0_idx_r[1 +: IDX_BIT-2] + (~ram_idx[0] & i_p0_idx_r[0]);
-        wire [IDX_BIT-2-1:0]  w_p0_g_sel = i_p0_idx_g[1 +: IDX_BIT-2] + (~ram_idx[1] & i_p0_idx_g[0]);
-        wire [IDX_BIT-2-1:0]  w_p0_b_sel = i_p0_idx_b[1 +: IDX_BIT-2] + (~ram_idx[2] & i_p0_idx_b[0]);
+        wire [I_IDX_BIT-2-1:0]  w_p0_r_sel = i_p0_idx_r[1 +: I_IDX_BIT-2] + (~ram_idx[0] & i_p0_idx_r[0]);
+        wire [I_IDX_BIT-2-1:0]  w_p0_g_sel = i_p0_idx_g[1 +: I_IDX_BIT-2] + (~ram_idx[1] & i_p0_idx_g[0]);
+        wire [I_IDX_BIT-2-1:0]  w_p0_b_sel = i_p0_idx_b[1 +: I_IDX_BIT-2] + (~ram_idx[2] & i_p0_idx_b[0]);
         assign w_p0_gssub1_pt[idx] = w_p0_gssub1_dout[(3'(idx)) ^ {r1_p0_idx_b[0], r1_p0_idx_g[0], r1_p0_idx_r[0]}];
-        wire [IDX_BIT-2-1:0]  w_p1_r_sel = i_p1_idx_r[1 +: IDX_BIT-2] + (~ram_idx[0] & i_p1_idx_r[0]);
-        wire [IDX_BIT-2-1:0]  w_p1_g_sel = i_p1_idx_g[1 +: IDX_BIT-2] + (~ram_idx[1] & i_p1_idx_g[0]);
-        wire [IDX_BIT-2-1:0]  w_p1_b_sel = i_p1_idx_b[1 +: IDX_BIT-2] + (~ram_idx[2] & i_p1_idx_b[0]);
+        wire [I_IDX_BIT-2-1:0]  w_p1_r_sel = i_p1_idx_r[1 +: I_IDX_BIT-2] + (~ram_idx[0] & i_p1_idx_r[0]);
+        wire [I_IDX_BIT-2-1:0]  w_p1_g_sel = i_p1_idx_g[1 +: I_IDX_BIT-2] + (~ram_idx[1] & i_p1_idx_g[0]);
+        wire [I_IDX_BIT-2-1:0]  w_p1_b_sel = i_p1_idx_b[1 +: I_IDX_BIT-2] + (~ram_idx[2] & i_p1_idx_b[0]);
         assign w_p1_gssub1_pt[idx] = w_p1_gssub1_dout[(3'(idx)) ^ {r1_p1_idx_b[0], r1_p1_idx_g[0], r1_p1_idx_r[0]}];
         true_dual_port_ram #(
             .DATA_WIDTH(LUT_CD*3),
-            .ADDR_WIDTH((IDX_BIT-2)*3),
+            .ADDR_WIDTH((I_IDX_BIT-2)*3),
             .WRITE_MODE_1("READ_FIRST"),
             .WRITE_MODE_2("READ_FIRST"),
             .OUTPUT_REG_1("FALSE"),
@@ -236,7 +241,7 @@ generate
             .we1    (0), 
             .din1   (), 
             .addr1  ({
-                w_p0_b_sel[0 +: IDX_BIT-2], w_p0_g_sel[0 +: IDX_BIT-2], w_p0_r_sel[0 +: IDX_BIT-2]
+                w_p0_b_sel[0 +: I_IDX_BIT-2], w_p0_g_sel[0 +: I_IDX_BIT-2], w_p0_r_sel[0 +: I_IDX_BIT-2]
             }), 
             .dout1  (w_p0_gssub1_dout[idx]), 
             
@@ -247,100 +252,102 @@ generate
             .din2   (i_cfg_data),
             .addr2  (
                 i_cfg_valid ? cfg_addr_gssub1 : 
-                {w_p1_b_sel[0 +: IDX_BIT-2], w_p1_g_sel[0 +: IDX_BIT-2], w_p1_r_sel[0 +: IDX_BIT-2]}
+                {w_p1_b_sel[0 +: I_IDX_BIT-2], w_p1_g_sel[0 +: I_IDX_BIT-2], w_p1_r_sel[0 +: I_IDX_BIT-2]}
             ),
             .dout2  (w_p1_gssub1_dout[idx])
         );
     end
     
-    for (idx=0 ; idx<4 ; idx=idx+1) begin : gen_3dram_red_MAX
-        logic [1:0] ram_idx = idx;
-        wire [IDX_BIT-2-1:0]  w_p0_g_sel = i_p0_idx_g[1 +: IDX_BIT-2] + (~ram_idx[0] & i_p0_idx_g[0]);
-        wire [IDX_BIT-1-1:0]  w_p0_b_sel = {i_p0_idx_b[1 +: IDX_BIT-1]} + (~ram_idx[1] & i_p0_idx_b[0]);
-        assign w_p0_redmax_pt[idx] = w_p0_redmax_dout[(2'(idx)) ^ {r1_p0_idx_b[0], r1_p0_idx_g[0]}];
-        wire [IDX_BIT-2-1:0]  w_p1_g_sel = i_p1_idx_g[1 +: IDX_BIT-2] + (~ram_idx[0] & i_p1_idx_g[0]);
-        wire [IDX_BIT-1-1:0]  w_p1_b_sel = {i_p1_idx_b[1 +: IDX_BIT-1]} + (~ram_idx[1] & i_p1_idx_b[0]);
-        assign w_p1_redmax_pt[idx] = w_p1_redmax_dout[(2'(idx)) ^ {r1_p1_idx_b[0], r1_p1_idx_g[0]}];
-        true_dual_port_ram #(
-            .DATA_WIDTH(LUT_CD*3),
-            .ADDR_WIDTH(IDX_BIT-1+IDX_BIT-2),
-            .WRITE_MODE_1("READ_FIRST"),
-            .WRITE_MODE_2("READ_FIRST"),
-            .OUTPUT_REG_1("FALSE"),
-            .OUTPUT_REG_2("FALSE")
-        ) u_ramlut_red_max (
-            .clka   (clk), 
-            .we1    (0), 
-            .din1   (), 
-            .addr1  ({w_p0_b_sel, w_p0_g_sel}), 
-            .dout1  (w_p0_redmax_dout[idx]), 
+    if (!ISALIGN) begin
+        for (idx=0 ; idx<4 ; idx=idx+1) begin : gen_3dram_red_MAX
+            logic [1:0] ram_idx = idx;
+            wire [I_IDX_BIT-2-1:0]  w_p0_g_sel = i_p0_idx_g[1 +: I_IDX_BIT-2] + (~ram_idx[0] & i_p0_idx_g[0]);
+            wire [I_IDX_BIT-1-1:0]  w_p0_b_sel = {i_p0_idx_b[1 +: I_IDX_BIT-1]} + (~ram_idx[1] & i_p0_idx_b[0]);
+            assign w_p0_redmax_pt[idx] = w_p0_redmax_dout[(2'(idx)) ^ {r1_p0_idx_b[0], r1_p0_idx_g[0]}];
+            wire [I_IDX_BIT-2-1:0]  w_p1_g_sel = i_p1_idx_g[1 +: I_IDX_BIT-2] + (~ram_idx[0] & i_p1_idx_g[0]);
+            wire [I_IDX_BIT-1-1:0]  w_p1_b_sel = {i_p1_idx_b[1 +: I_IDX_BIT-1]} + (~ram_idx[1] & i_p1_idx_b[0]);
+            assign w_p1_redmax_pt[idx] = w_p1_redmax_dout[(2'(idx)) ^ {r1_p1_idx_b[0], r1_p1_idx_g[0]}];
+            true_dual_port_ram #(
+                .DATA_WIDTH(LUT_CD*3),
+                .ADDR_WIDTH(I_IDX_BIT-1+I_IDX_BIT-2),
+                .WRITE_MODE_1("READ_FIRST"),
+                .WRITE_MODE_2("READ_FIRST"),
+                .OUTPUT_REG_1("FALSE"),
+                .OUTPUT_REG_2("FALSE")
+            ) u_ramlut_red_max (
+                .clka   (clk), 
+                .we1    (0), 
+                .din1   (), 
+                .addr1  ({w_p0_b_sel, w_p0_g_sel}), 
+                .dout1  (w_p0_redmax_dout[idx]), 
+                
+                .clkb   (clk),
+                .we2    (r_rmax_sel && ({cfg_count_3d[2][0], cfg_count_3d[1][0]} == ram_idx)), 
+                .din2   (i_cfg_data),
+                .addr2  (i_cfg_valid ? cfg_addr_rmax : {w_p1_b_sel, w_p1_g_sel}),
+                .dout2  (w_p1_redmax_dout[idx])
+            );
+        end
             
-            .clkb   (clk),
-            .we2    (r_rmax_sel && ({cfg_count_3d[2][0], cfg_count_3d[1][0]} == ram_idx)), 
-            .din2   (i_cfg_data),
-            .addr2  (i_cfg_valid ? cfg_addr_rmax : {w_p1_b_sel, w_p1_g_sel}),
-            .dout2  (w_p1_redmax_dout[idx])
-        );
-    end
-        
-    for (idx=0 ; idx<4 ; idx=idx+1) begin : gen_3dram_green_MAX
-        logic [1:0] ram_idx = idx;
-        wire [IDX_BIT-2-1:0]  w_p0_b_sel = {i_p0_idx_b[1 +: IDX_BIT-2]} + (~ram_idx[0] & i_p0_idx_b[0]);
-        wire [IDX_BIT-1-1:0]  w_p0_r_sel = {i_p0_idx_r[1 +: IDX_BIT-1]} + (~ram_idx[1] & i_p0_idx_r[0]);
-        assign w_p0_greenmax_pt[idx] = w_p0_greenmax_dout[(2'(idx)) ^ {r1_p0_idx_r[0], r1_p0_idx_b[0]}];
-        wire [IDX_BIT-2-1:0]  w_p1_b_sel = {i_p1_idx_b[1 +: IDX_BIT-2]} + (~ram_idx[0] & i_p1_idx_b[0]);
-        wire [IDX_BIT-1-1:0]  w_p1_r_sel = {i_p1_idx_r[1 +: IDX_BIT-1]} + (~ram_idx[1] & i_p1_idx_r[0]);
-        assign w_p1_greenmax_pt[idx] = w_p1_greenmax_dout[(2'(idx)) ^ {r1_p1_idx_r[0], r1_p1_idx_b[0]}];
-        true_dual_port_ram #(
-            .DATA_WIDTH(LUT_CD*3),
-            .ADDR_WIDTH(IDX_BIT-1+IDX_BIT-2),
-            .WRITE_MODE_1("READ_FIRST"),
-            .WRITE_MODE_2("READ_FIRST"),
-            .OUTPUT_REG_1("FALSE"),
-            .OUTPUT_REG_2("FALSE")
-        ) u_ramlut_green_max (
-            .clka   (clk), 
-            .we1    (0), 
-            .din1   (), 
-            .addr1  ({w_p0_r_sel, w_p0_b_sel}), 
-            .dout1  (w_p0_greenmax_dout[idx]), 
+        for (idx=0 ; idx<4 ; idx=idx+1) begin : gen_3dram_green_MAX
+            logic [1:0] ram_idx = idx;
+            wire [I_IDX_BIT-2-1:0]  w_p0_b_sel = {i_p0_idx_b[1 +: I_IDX_BIT-2]} + (~ram_idx[0] & i_p0_idx_b[0]);
+            wire [I_IDX_BIT-1-1:0]  w_p0_r_sel = {i_p0_idx_r[1 +: I_IDX_BIT-1]} + (~ram_idx[1] & i_p0_idx_r[0]);
+            assign w_p0_greenmax_pt[idx] = w_p0_greenmax_dout[(2'(idx)) ^ {r1_p0_idx_r[0], r1_p0_idx_b[0]}];
+            wire [I_IDX_BIT-2-1:0]  w_p1_b_sel = {i_p1_idx_b[1 +: I_IDX_BIT-2]} + (~ram_idx[0] & i_p1_idx_b[0]);
+            wire [I_IDX_BIT-1-1:0]  w_p1_r_sel = {i_p1_idx_r[1 +: I_IDX_BIT-1]} + (~ram_idx[1] & i_p1_idx_r[0]);
+            assign w_p1_greenmax_pt[idx] = w_p1_greenmax_dout[(2'(idx)) ^ {r1_p1_idx_r[0], r1_p1_idx_b[0]}];
+            true_dual_port_ram #(
+                .DATA_WIDTH(LUT_CD*3),
+                .ADDR_WIDTH(I_IDX_BIT-1+I_IDX_BIT-2),
+                .WRITE_MODE_1("READ_FIRST"),
+                .WRITE_MODE_2("READ_FIRST"),
+                .OUTPUT_REG_1("FALSE"),
+                .OUTPUT_REG_2("FALSE")
+            ) u_ramlut_green_max (
+                .clka   (clk), 
+                .we1    (0), 
+                .din1   (), 
+                .addr1  ({w_p0_r_sel, w_p0_b_sel}), 
+                .dout1  (w_p0_greenmax_dout[idx]), 
+                
+                .clkb   (clk),
+                .we2    (r_gmax_sel && ({cfg_count_3d[0][0], cfg_count_3d[2][0]} == ram_idx)),  
+                .din2   (i_cfg_data),
+                .addr2  (i_cfg_valid ? cfg_addr_gmax : {w_p1_r_sel, w_p1_b_sel}),
+                .dout2  (w_p1_greenmax_dout[idx])
+            );
+        end
             
-            .clkb   (clk),
-            .we2    (r_gmax_sel && ({cfg_count_3d[0][0], cfg_count_3d[2][0]} == ram_idx)),  
-            .din2   (i_cfg_data),
-            .addr2  (i_cfg_valid ? cfg_addr_gmax : {w_p1_r_sel, w_p1_b_sel}),
-            .dout2  (w_p1_greenmax_dout[idx])
-        );
-    end
-        
-    for (idx=0 ; idx<4 ; idx=idx+1) begin : gen_3dram_blue_MAX
-        logic [1:0] ram_idx = idx;
-        wire [IDX_BIT-2-1:0]  w_p0_r_sel = i_p0_idx_r[1 +: IDX_BIT-2] + (~ram_idx[0] & i_p0_idx_r[0]);
-        wire [IDX_BIT-1-1:0]  w_p0_g_sel = {i_p0_idx_g[1 +: IDX_BIT-1]} + (!ram_idx[1] & i_p0_idx_g[0]);
-        assign w_p0_bluemax_pt[idx] = w_p0_bluemax_dout[(2'(idx)) ^ {r1_p0_idx_g[0], r1_p0_idx_r[0]}];
-        wire [IDX_BIT-2-1:0]  w_p1_r_sel = i_p1_idx_r[1 +: IDX_BIT-2] + (~ram_idx[0] & i_p1_idx_r[0]);
-        wire [IDX_BIT-1-1:0]  w_p1_g_sel = {i_p1_idx_g[1 +: IDX_BIT-1]} + (!ram_idx[1] & i_p1_idx_g[0]);
-        assign w_p1_bluemax_pt[idx] = w_p1_bluemax_dout[(2'(idx)) ^ {r1_p1_idx_g[0], r1_p1_idx_r[0]}];
-        true_dual_port_ram #(
-            .DATA_WIDTH(LUT_CD*3),
-            .ADDR_WIDTH(IDX_BIT-1+IDX_BIT-2),
-            .WRITE_MODE_1("READ_FIRST"),
-            .WRITE_MODE_2("READ_FIRST"),
-            .OUTPUT_REG_1("FALSE"),
-            .OUTPUT_REG_2("FALSE")
-        ) u_ramlut_blue_max (
-            .clka   (clk), 
-            .we1    (0), 
-            .din1   (), 
-            .addr1  ({w_p0_g_sel, w_p0_r_sel}), 
-            .dout1  (w_p0_bluemax_dout[idx]), 
-            
-            .clkb   (clk),
-            .we2    (r_bmax_sel && ({cfg_count_3d[1][0], cfg_count_3d[0][0]} == ram_idx)),
-            .din2   (i_cfg_data),
-            .addr2  (i_cfg_valid ? cfg_addr_bmax : {w_p1_g_sel, w_p1_r_sel}),
-            .dout2  (w_p1_bluemax_dout[idx])
-        );
+        for (idx=0 ; idx<4 ; idx=idx+1) begin : gen_3dram_blue_MAX
+            logic [1:0] ram_idx = idx;
+            wire [I_IDX_BIT-2-1:0]  w_p0_r_sel = i_p0_idx_r[1 +: I_IDX_BIT-2] + (~ram_idx[0] & i_p0_idx_r[0]);
+            wire [I_IDX_BIT-1-1:0]  w_p0_g_sel = {i_p0_idx_g[1 +: I_IDX_BIT-1]} + (!ram_idx[1] & i_p0_idx_g[0]);
+            assign w_p0_bluemax_pt[idx] = w_p0_bluemax_dout[(2'(idx)) ^ {r1_p0_idx_g[0], r1_p0_idx_r[0]}];
+            wire [I_IDX_BIT-2-1:0]  w_p1_r_sel = i_p1_idx_r[1 +: I_IDX_BIT-2] + (~ram_idx[0] & i_p1_idx_r[0]);
+            wire [I_IDX_BIT-1-1:0]  w_p1_g_sel = {i_p1_idx_g[1 +: I_IDX_BIT-1]} + (!ram_idx[1] & i_p1_idx_g[0]);
+            assign w_p1_bluemax_pt[idx] = w_p1_bluemax_dout[(2'(idx)) ^ {r1_p1_idx_g[0], r1_p1_idx_r[0]}];
+            true_dual_port_ram #(
+                .DATA_WIDTH(LUT_CD*3),
+                .ADDR_WIDTH(I_IDX_BIT-1+I_IDX_BIT-2),
+                .WRITE_MODE_1("READ_FIRST"),
+                .WRITE_MODE_2("READ_FIRST"),
+                .OUTPUT_REG_1("FALSE"),
+                .OUTPUT_REG_2("FALSE")
+            ) u_ramlut_blue_max (
+                .clka   (clk), 
+                .we1    (0), 
+                .din1   (), 
+                .addr1  ({w_p0_g_sel, w_p0_r_sel}), 
+                .dout1  (w_p0_bluemax_dout[idx]), 
+                
+                .clkb   (clk),
+                .we2    (r_bmax_sel && ({cfg_count_3d[1][0], cfg_count_3d[0][0]} == ram_idx)),
+                .din2   (i_cfg_data),
+                .addr2  (i_cfg_valid ? cfg_addr_bmax : {w_p1_g_sel, w_p1_r_sel}),
+                .dout2  (w_p1_bluemax_dout[idx])
+            );
+        end
     end
 endgenerate
 
