@@ -48,6 +48,8 @@ private:
     SimState state;
     queue<uint32_t> q_exp_result;
     uint32_t tmp_pt_nbr[8];
+    int write_cnt;
+    int read_cnt;
 
     #define TB_ASSERT(condition, message) \
         if (!(condition)) { \
@@ -146,12 +148,22 @@ private:
                     uint32_t exp_result = trilinear_interp(tmp_pt_nbr, tmp_frac_r/256.0f, 
                         tmp_frac_g/256.0f, tmp_frac_b/256.0f); 
                     q_exp_result.push(exp_result);
+                    ++write_cnt;
                 } else {
                     in_valid = 0;
                 }
             } else {
-                wait(10, SC_NS);
-                state = SIM_STATE_END_NO_ERR;
+                in_valid = 0;
+                wait(50, SC_NS);
+                if (read_cnt != write_cnt || write_cnt < 1000) {
+                    if (read_cnt != write_cnt)
+                        cout << "[ERROR] write count and read count mismatch " << endl;
+                    if (write_cnt) 
+                        cout << "[ERROR] write count less than expected " << endl;
+                    state = SIM_STATE_END_WITH_ERR;
+                } else {
+                    state = SIM_STATE_END_NO_ERR;
+                }
             }
         }
     }
@@ -164,9 +176,10 @@ private:
             if (out_valid) {
                 TB_ASSERT(!q_exp_result.empty(), "Expect result queue is empty" << endl);
                 TB_ASSERT(checkResult(q_exp_result.front(), out_pt.read()), 
-                    "Value is not equal! Expect: " << hex << q_exp_result.front() 
+                    "Value is not correct! Expect: " << hex << q_exp_result.front() 
                     << ", Receive: " << out_pt << endl);
                 q_exp_result.pop();
+                ++read_cnt;
             }
         }
     }
@@ -182,6 +195,8 @@ public:
 
     void print_result() const {
         cout << "--------------------printing final result----------------\r\n";
+        cout << "total write count: " << write_cnt << endl; 
+        cout << "total read count: " << read_cnt << endl; 
     }
     
     top_tb (
@@ -205,6 +220,8 @@ public:
         for (int i = 0; i < 8; ++i) {
             dut->pt_nbr[i](pt_nbr[i]);
         }
+        write_cnt = 0;
+        read_cnt = 0;
 
         rstn = false;
         state = SIM_STATE_IDLE;
