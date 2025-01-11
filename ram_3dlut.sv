@@ -97,7 +97,7 @@ logic [IDX_BIT*2-2-1-1:0] cfg_addr_bmax;
 // logic [2:0] cfg_rgb_max;
 logic [LUT_CD*3-1:0] allmax_value = 0;
 
-cfg_last_valid: assert property (@(posedge clk) i_cfg_last |-> i_cfg_valid) $display("cfg_last_valid assertion success");
+cfg_last_valid: assert property (@(posedge clk) i_cfg_last |-> i_cfg_valid);
 cfg_addr_rmax_sel: assert property (@(posedge clk) r_rmax_sel |-> cfg_count_3d[0] == GS - 1);
 cfg_addr_gmax_sel: assert property (@(posedge clk) r_gmax_sel |-> cfg_count_3d[1] == GS - 1);
 cfg_addr_bmax_sel: assert property (@(posedge clk) r_bmax_sel |-> cfg_count_3d[2] == GS - 1);
