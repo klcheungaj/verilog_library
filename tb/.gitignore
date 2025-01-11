@@ -1,3 +1,6 @@
 build
 *.gtkw
 *.jpg
+*.cube
+*.png
+*.csv
