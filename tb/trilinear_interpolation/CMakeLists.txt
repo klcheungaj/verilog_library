@@ -8,8 +8,8 @@ set(PROJ_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_FLAGS_DEBUG   "-O0 -g -DCD=${CD}" )
-set(CMAKE_CXX_FLAGS_RELEASE "-O2    -DCD=${CD}")
+set(CMAKE_CXX_FLAGS_DEBUG   "-O0 -g -DIN_CD=${IN_CD} -DOUT_CD=${OUT_CD}")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2    -DIN_CD=${IN_CD} -DOUT_CD=${OUT_CD}")
 
 ## Find Verilator
 find_package(verilator REQUIRED)
@@ -24,7 +24,7 @@ find_package(SystemCLanguage QUIET)
 
 
 ## arguments be passed to verilator
-set(VERILATOR_ARGS -Wno-STMTDLY -Wno-style -Wno-lint -Wno-TIMESCALEMOD --sc -O3 --coverage --assert -GCD=${CD})
+set(VERILATOR_ARGS -Wno-STMTDLY -Wno-style -Wno-lint -Wno-TIMESCALEMOD --sc -O3 --coverage --assert -GIN_CD=${IN_CD} -GOUT_CD=${OUT_CD})
 if(TRACE_FLAG)
   list(APPEND VERILATOR_ARGS --trace-fst)
 endif(TRACE_FLAG)

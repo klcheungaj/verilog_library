@@ -1,19 +1,19 @@
 
 module trilinear_interpolation #(
     parameter FW = 8,  // fractional part width
-    parameter CD = 8   // color depth
+    parameter IN_CD = 8,   // input color depth
+    parameter OUT_CD = IN_CD   // output color depth
 ) (
     input clk,
     input rstn,
 
-
-    input               in_valid,
-    input [FW-1:0]      frac_r,
-    input [FW-1:0]      frac_g,
-    input [FW-1:0]      frac_b,
-    input [CD*3-1:0]    pt_nbr[7:0],       // {B, G, R}
-    output [CD*3-1:0]   out_pt,
-    output              out_valid
+    input                 in_valid,
+    input  [      FW-1:0] frac_r,
+    input  [      FW-1:0] frac_g,
+    input  [      FW-1:0] frac_b,
+    input  [ IN_CD*3-1:0] pt_nbr   [7:0],  // {B, G, R}
+    output [OUT_CD*3-1:0] out_pt,
+    output                out_valid
 );
 
 /**
@@ -37,7 +37,13 @@ module trilinear_interpolation #(
  */
 
 // internal color depth. Can be larger than the input color depth to increase the precision 
-localparam I_CD = CD + 2;
+localparam I_CD = IN_CD + 2;
+
+initial begin
+    $display("FW: %d, IN_CD: %d, OUT_CD: %d", FW, IN_CD, OUT_CD);
+    assert(I_CD >= IN_CD);
+    assert(OUT_CD <= IN_CD);
+end
 
 logic [I_CD*3-1:0] pt_nbr_ext[7:0];   // extended pt_nbr to increase precision;
 logic [I_CD-1:0] pt_r_interp        [3:0][2:0];
@@ -59,15 +65,15 @@ logic [ 6-1:0] r_valid;
 logic [FW:0] comb_oppo_frac_r;  // one more width as frac could be 0
 logic [FW:0] comb_oppo_frac_g;  // one more width as frac could be 0
 logic [FW:0] comb_oppo_frac_b;  // one more width as frac could be 0
-assign out_pt = {pt_rgb_interp[2][I_CD-1 -: CD], pt_rgb_interp[1][I_CD-1 -: CD], pt_rgb_interp[0][I_CD-1 -: CD]};
+assign out_pt = {pt_rgb_interp[2][I_CD-1 -: OUT_CD], pt_rgb_interp[1][I_CD-1 -: OUT_CD], pt_rgb_interp[0][I_CD-1 -: OUT_CD]};
 assign out_valid = r_valid[5];
 
 genvar idx;
 generate
     for (idx=0; idx<8 ; idx=idx+1) begin
-        assign pt_nbr_ext[idx][I_CD*0 +: I_CD] = {pt_nbr[idx][CD*0 +: CD], {(I_CD-CD){1'b0}}};
-        assign pt_nbr_ext[idx][I_CD*1 +: I_CD] = {pt_nbr[idx][CD*1 +: CD], {(I_CD-CD){1'b0}}};
-        assign pt_nbr_ext[idx][I_CD*2 +: I_CD] = {pt_nbr[idx][CD*2 +: CD], {(I_CD-CD){1'b0}}};
+        assign pt_nbr_ext[idx][I_CD*0 +: I_CD] = {pt_nbr[idx][IN_CD*0 +: IN_CD], {(I_CD-IN_CD){1'b0}}};
+        assign pt_nbr_ext[idx][I_CD*1 +: I_CD] = {pt_nbr[idx][IN_CD*1 +: IN_CD], {(I_CD-IN_CD){1'b0}}};
+        assign pt_nbr_ext[idx][I_CD*2 +: I_CD] = {pt_nbr[idx][IN_CD*2 +: IN_CD], {(I_CD-IN_CD){1'b0}}};
     end
 endgenerate
 

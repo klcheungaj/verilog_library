@@ -17,8 +17,11 @@
 #include <systemc.h>
 
 #define FW 8    //fractional part width
-#ifndef CD      //may be defined in makefile
-    #define CD 8
+#ifndef IN_CD      //may be defined in makefile
+    #define IN_CD 8
+#endif
+#ifndef OUT_CD      //may be defined in makefile
+    #define OUT_CD 8
 #endif
 using namespace std;
 
@@ -59,7 +62,7 @@ private:
 
     uint32_t trilinear_interp (uint32_t pt[8], float frac_r, float frac_g, float frac_b) {
         float acc[3] = {0};
-        uint32_t mask = getAllOnes(CD);
+        uint32_t mask = getAllOnes(IN_CD);
         // cout << "frac_r: " << frac_r << ". frac_g: " << frac_g << ". frac_b: " << frac_b << endl; 
         for (int k=0 ; k<2 ; k++) {
             for (int j=0 ; j<2 ; j++) {
@@ -70,21 +73,26 @@ private:
                         acc[ch] += ((i*frac_r) + (1-i)*(1-frac_r) ) *
                                     ((j*frac_g) + (1-j)*(1-frac_g) ) *
                                     ((k*frac_b) + (1-k)*(1-frac_b) ) *
-                                    ((pt[k*4 + j*2 + i] >> ch*CD) & mask);
+                                    ((pt[k*4 + j*2 + i] >> ch*IN_CD) & mask);
                     }
                 }
             }
         }
+        uint32_t out_mask = getAllOnes(OUT_CD);
+        uint32_t acc_int[3] = {0};
+        for (int i=0 ; i<3 ; i++) {
+            acc_int[i] = uint32_t(acc[i] / (1 << (IN_CD - OUT_CD))) & out_mask;
+        }
         // cout << "acc of red is: " << acc[0] << endl;
-        return (int(acc[2]) & mask) << (CD*2) | (int(acc[1]) & mask) << (CD) | int(acc[0]) & mask;
+        return acc_int[2] << (OUT_CD*2) | acc_int[1] << (OUT_CD) | acc_int[0];
     }
 
     bool checkResult(uint32_t expect, uint32_t receive) {
-        uint32_t mask = getAllOnes(CD);
+        uint32_t mask = getAllOnes(OUT_CD);
         for (int ch=0 ; ch<3 ; ch++) {
-            uint32_t e_ch = ((expect >> ch*CD) & mask);
-            uint32_t r_ch = ((receive >> ch*CD) & mask);
-            int64_t diff = e_ch - r_ch;
+            uint32_t e_ch = ((expect >> ch*OUT_CD) & mask);
+            uint32_t r_ch = ((receive >> ch*OUT_CD) & mask);
+            int64_t diff = abs((int64_t)e_ch - (int64_t)r_ch);
             // if (diff == 1) {
             //     cout << "[Warning] difference between expected and received value is 1, which is considered as acceptable" << endl; 
             // }
@@ -112,9 +120,16 @@ private:
             if (sc_time_stamp() < sc_time(100, SC_NS)) {
                 rstn = false;  // Assert reset
                 in_valid = 0;
+                frac_r = 0;
+                frac_g = 0;
+                frac_b = 0;
+                in_valid = 0;
+                for (int i=0 ; i<8 ; ++i) {
+                    pt_nbr[i] = 0;
+                }
             } else if (sc_time_stamp() < sc_time(120, SC_NS)) {
                 rstn = true;    // deassert reset
-            } else {
+            } else if (sc_time_stamp() < sc_time(10, SC_MS)) {
                 bool isValid = (rand() % 4) < 3;
                 uint32_t tmp_frac_r = gen_next_fractional();
                 uint32_t tmp_frac_g = gen_next_fractional();
@@ -125,7 +140,7 @@ private:
                 if (isValid) {
                     in_valid = 1;
                     for (int i=0 ; i<8 ; ++i) {
-                        tmp_pt_nbr[i] = (rand() % (1 << CD)) << (CD*2) | (rand() % (1 << CD)) << (CD) | (rand() % (1 << CD));
+                        tmp_pt_nbr[i] = (rand() % (1 << IN_CD)) << (IN_CD*2) | (rand() % (1 << IN_CD)) << (IN_CD) | (rand() % (1 << IN_CD));
                         pt_nbr[i] = tmp_pt_nbr[i];
                     }
                     uint32_t exp_result = trilinear_interp(tmp_pt_nbr, tmp_frac_r/256.0f, 
@@ -134,6 +149,9 @@ private:
                 } else {
                     in_valid = 0;
                 }
+            } else {
+                wait(10, SC_NS);
+                state = SIM_STATE_END_NO_ERR;
             }
         }
     }
@@ -191,7 +209,8 @@ public:
         rstn = false;
         state = SIM_STATE_IDLE;
 
-        cout << "Color depth is " << CD << endl;
+        cout << "input color depth is " << IN_CD << endl;
+        cout << "output color depth is " << OUT_CD << endl;
     }
 };
 

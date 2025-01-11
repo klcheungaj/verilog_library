@@ -1,12 +1,13 @@
 
 .PHONY: gen build run view clean
 
-CD=8
+IN_CD=8
+OUT_CD=8
 
 ifeq ($(trace),on)
-CMAKE_VAR += -DTRACE_FLAG=true -DCD=$(CD)
+CMAKE_VAR += -DTRACE_FLAG=true -DIN_CD=$(IN_CD) -DOUT_CD=$(OUT_CD)
 else
-CMAKE_VAR += -DTRACE_FLAG=false -DCD=$(CD)
+CMAKE_VAR += -DTRACE_FLAG=false -DIN_CD=$(IN_CD) -DOUT_CD=$(OUT_CD)
 endif 
 
 gen:
