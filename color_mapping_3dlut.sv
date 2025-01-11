@@ -147,21 +147,30 @@ generate
             .frac(w_map_frac_b[idx])
         );
 
-        trilinear_interpolation #(
-            .FW(FRAC),
-            .IN_CD(LUT_CD),
-            .OUT_CD(CD)
-        ) u_trilinear_interpolation_pt0 (
-            .clk(p_clk),
-            .rstn(p_rstn),
+        for (genvar ch=0 ; ch<3 ; ch=ch+1) begin
+            trilinear_interpolation #(
+                .FW(FRAC),
+                .IN_CD(LUT_CD),
+                .OUT_CD(CD)
+            ) u_trilinear_interpolation_pt0 (
+                .clk(p_clk),
+                .rstn(p_rstn),
 
-            .frac_r(map_frac_r_r2[idx]),
-            .frac_g(map_frac_g_r2[idx]),
-            .frac_b(map_frac_b_r2[idx]),
+                .in_valid(),
+                .frac_x(map_frac_r_r2[idx]),
+                .frac_y(map_frac_g_r2[idx]),
+                .frac_z(map_frac_b_r2[idx]),
 
-            .pt_nbr(w_pt_nbr[idx]),
-            .out_pt(w_out_pt[idx])
-        );
+                .out_valid(),
+                .pt_nbr('{
+                    w_pt_nbr[idx][7][ch*LUT_CD +: LUT_CD], w_pt_nbr[idx][6][ch*LUT_CD +: LUT_CD],
+                    w_pt_nbr[idx][5][ch*LUT_CD +: LUT_CD], w_pt_nbr[idx][4][ch*LUT_CD +: LUT_CD],
+                    w_pt_nbr[idx][3][ch*LUT_CD +: LUT_CD], w_pt_nbr[idx][2][ch*LUT_CD +: LUT_CD],
+                    w_pt_nbr[idx][1][ch*LUT_CD +: LUT_CD], w_pt_nbr[idx][0][ch*LUT_CD +: LUT_CD]
+                }),
+                .out_pt(w_out_pt[idx][ch*CD +: CD])
+            );
+        end
     end
 endgenerate
 

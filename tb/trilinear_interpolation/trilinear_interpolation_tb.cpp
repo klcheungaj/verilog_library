@@ -29,9 +29,9 @@ SC_MODULE(top_tb) {
     sc_clock clk;
     sc_signal<bool> rstn;
     sc_signal<bool>     in_valid;
-    sc_signal<uint32_t> frac_r;
-    sc_signal<uint32_t> frac_g;
-    sc_signal<uint32_t> frac_b;
+    sc_signal<uint32_t> frac_x;
+    sc_signal<uint32_t> frac_y;
+    sc_signal<uint32_t> frac_z;
     sc_signal<bool>     out_valid;
     sc_signal<uint32_t> out_pt;
     sc_signal<uint32_t> (pt_nbr)[8];
@@ -62,31 +62,27 @@ private:
         return ((1ULL << numOfOne) - 1ULL);
     }
 
-    uint32_t trilinear_interp (uint32_t pt[8], float frac_r, float frac_g, float frac_b) {
-        float acc[3] = {0};
+    uint32_t trilinear_interp (uint32_t pt[8], float frac_x, float frac_y, float frac_z) {
+        float acc = {0};
         uint32_t mask = getAllOnes(IN_CD);
-        // cout << "frac_r: " << frac_r << ". frac_g: " << frac_g << ". frac_b: " << frac_b << endl; 
+        // cout << "frac_x: " << frac_x << ". frac_y: " << frac_y << ". frac_z: " << frac_z << endl; 
         for (int k=0 ; k<2 ; k++) {
             for (int j=0 ; j<2 ; j++) {
                 for (int i=0 ; i<2 ; i++) {
                     // cout << "red data of index " << k*4 + j*2 + i 
                     //         << " is: " << ((pt[k*4 + j*2 + i] >> 0*8) & 0xFF) << endl; 
-                    for (int ch=0 ; ch<3 ; ch++) {
-                        acc[ch] += ((i*frac_r) + (1-i)*(1-frac_r) ) *
-                                    ((j*frac_g) + (1-j)*(1-frac_g) ) *
-                                    ((k*frac_b) + (1-k)*(1-frac_b) ) *
-                                    ((pt[k*4 + j*2 + i] >> ch*IN_CD) & mask);
-                    }
+                    acc += ((i*frac_x) + (1-i)*(1-frac_x) ) *
+                            ((j*frac_y) + (1-j)*(1-frac_y) ) *
+                            ((k*frac_z) + (1-k)*(1-frac_z) ) *
+                            ((pt[k*4 + j*2 + i]) & mask);
                 }
             }
         }
         uint32_t out_mask = getAllOnes(OUT_CD);
-        uint32_t acc_int[3] = {0};
-        for (int i=0 ; i<3 ; i++) {
-            acc_int[i] = uint32_t(acc[i] / (1 << (IN_CD - OUT_CD))) & out_mask;
-        }
+        uint32_t acc_int = 0;
+        acc_int = uint32_t(acc / (1 << (IN_CD - OUT_CD))) & out_mask;
         // cout << "acc of red is: " << acc[0] << endl;
-        return acc_int[2] << (OUT_CD*2) | acc_int[1] << (OUT_CD) | acc_int[0];
+        return acc_int;
     }
 
     bool checkResult(uint32_t expect, uint32_t receive) {
@@ -122,9 +118,9 @@ private:
             if (sc_time_stamp() < sc_time(100, SC_NS)) {
                 rstn = false;  // Assert reset
                 in_valid = 0;
-                frac_r = 0;
-                frac_g = 0;
-                frac_b = 0;
+                frac_x = 0;
+                frac_y = 0;
+                frac_z = 0;
                 in_valid = 0;
                 for (int i=0 ; i<8 ; ++i) {
                     pt_nbr[i] = 0;
@@ -133,20 +129,20 @@ private:
                 rstn = true;    // deassert reset
             } else if (sc_time_stamp() < sc_time(10, SC_MS)) {
                 bool isValid = (rand() % 4) < 3;
-                uint32_t tmp_frac_r = gen_next_fractional();
-                uint32_t tmp_frac_g = gen_next_fractional();
-                uint32_t tmp_frac_b = gen_next_fractional();
-                frac_r = tmp_frac_r;
-                frac_g = tmp_frac_g;
-                frac_b = tmp_frac_b;
+                uint32_t tmp_frac_x = gen_next_fractional();
+                uint32_t tmp_frac_y = gen_next_fractional();
+                uint32_t tmp_frac_z = gen_next_fractional();
+                frac_x = tmp_frac_x;
+                frac_y = tmp_frac_y;
+                frac_z = tmp_frac_z;
                 if (isValid) {
                     in_valid = 1;
                     for (int i=0 ; i<8 ; ++i) {
-                        tmp_pt_nbr[i] = (rand() % (1 << IN_CD)) << (IN_CD*2) | (rand() % (1 << IN_CD)) << (IN_CD) | (rand() % (1 << IN_CD));
+                        tmp_pt_nbr[i] = rand() % (1 << IN_CD);
                         pt_nbr[i] = tmp_pt_nbr[i];
                     }
-                    uint32_t exp_result = trilinear_interp(tmp_pt_nbr, tmp_frac_r/256.0f, 
-                        tmp_frac_g/256.0f, tmp_frac_b/256.0f); 
+                    uint32_t exp_result = trilinear_interp(tmp_pt_nbr, tmp_frac_x/256.0f, 
+                        tmp_frac_y/256.0f, tmp_frac_z/256.0f); 
                     q_exp_result.push(exp_result);
                     ++write_cnt;
                 } else {
@@ -212,9 +208,9 @@ public:
         dut->clk(clk);
         dut->rstn(rstn);
         dut->in_valid(in_valid);
-        dut->frac_r(frac_r);
-        dut->frac_g(frac_g);
-        dut->frac_b(frac_b);
+        dut->frac_x(frac_x);
+        dut->frac_y(frac_y);
+        dut->frac_z(frac_z);
         dut->out_valid(out_valid);
         dut->out_pt(out_pt);
         for (int i = 0; i < 8; ++i) {
